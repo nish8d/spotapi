@@ -1,0 +1,12 @@
+# Secrets
+.env
+.spotify_token.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local state
+data/
