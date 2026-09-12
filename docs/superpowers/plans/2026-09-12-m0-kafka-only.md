@@ -1,6 +1,6 @@
 # M0 — Kafka Only: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Stand up a single-broker Kafka in KRaft mode under Docker Compose with the `plays` topic created at 3 partitions, and verify by hand that a message produced to it can be consumed back.
 
@@ -49,7 +49,7 @@ The topic could be created by hand with `docker exec`, but then a fresh clone wo
 - Consumes: nothing (first task in the project).
 - Produces: a Compose service named `kafka`, reachable at `kafka:9092` from other Compose services and `localhost:29092` from the host. A named volume `kafka-data`. Compose project name `spot`, so containers are `spot-kafka-1` etc. and `docker compose` commands work from the repo root with no `-p` flag.
 
-- [ ] **Step 1: Write `docker-compose.yml` with the broker only**
+- [x] **Step 1: Write `docker-compose.yml` with the broker only**
 
 ```yaml
 name: spot
@@ -114,7 +114,7 @@ volumes:
 > listeners in `advertised.listeners`) so Kafka advertises its `listeners` entry
 > as-is, and refuses a meta-address.
 
-- [ ] **Step 2: Start it and wait for the healthcheck to go green**
+- [x] **Step 2: Start it and wait for the healthcheck to go green**
 
 Run:
 ```bash
@@ -123,7 +123,7 @@ docker compose ps
 ```
 Expected: one container listed, `STATUS` reading `Up ... (healthy)`. It may read `(health: starting)` for the first ~30 seconds — re-run `docker compose ps` until it settles. If it reads `(unhealthy)` or the container is restarting, read `docker compose logs kafka` before changing anything.
 
-- [ ] **Step 3: Confirm the broker answers on both listeners**
+- [x] **Step 3: Confirm the broker answers on both listeners**
 
 Run:
 ```bash
@@ -137,7 +137,7 @@ docker compose exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstra
 ```
 Expected: a line beginning with `localhost:29092 (id: 1 ...)`. This proves the second listener is live; the host-side address matters from M1 onward when tests run outside Docker.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docker-compose.yml
@@ -157,7 +157,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: the `kafka` service from Task 1, at `kafka:9092`, gated on its healthcheck.
 - Produces: topic `plays` — 3 partitions, replication factor 1, `retention.ms=604800000`, `compression.type=snappy`. Every later milestone reads or writes this topic; M1's producer keys messages by `listener_id` so that a listener's plays stay ordered on one partition.
 
-- [ ] **Step 1: Add the one-shot topic-creation service**
+- [x] **Step 1: Add the one-shot topic-creation service**
 
 ```yaml
   # Runs once on `docker compose up`, creates the topic, exits 0.
@@ -193,7 +193,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 > success is the dangerous part: check for `Created topic plays.` in the output,
 > not just the exit code.
 
-- [ ] **Step 2: Run it and read its output**
+- [x] **Step 2: Run it and read its output**
 
 Run:
 ```bash
@@ -201,7 +201,7 @@ docker compose up kafka-init
 ```
 Expected: `Created topic plays.` followed by a `--- plays ---` banner and a describe block, then the container exits 0. Re-running the command must print `--- plays ---` and the describe block without error — `--if-not-exists` makes it idempotent.
 
-- [ ] **Step 3: Verify the partition count (acceptance criterion)**
+- [x] **Step 3: Verify the partition count (acceptance criterion)**
 
 Run:
 ```bash
@@ -215,7 +215,7 @@ docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafk
 docker compose up kafka-init
 ```
 
-- [ ] **Step 4: Consume in one terminal**
+- [x] **Step 4: Consume in one terminal**
 
 Run (leave this running):
 ```bash
@@ -225,7 +225,7 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
 ```
 Expected: it prints nothing and does not exit — a consumer with no new messages blocks, it does not finish.
 
-- [ ] **Step 5: Produce in a second terminal (acceptance criterion)**
+- [x] **Step 5: Produce in a second terminal (acceptance criterion)**
 
 Run:
 ```bash
@@ -243,7 +243,7 @@ Expected, in the consumer terminal: three lines appear within a second or so. Th
 
 Stop the consumer with Ctrl-C.
 
-- [ ] **Step 6: Confirm the messages are durable, not just relayed**
+- [x] **Step 6: Confirm the messages are durable, not just relayed**
 
 Run:
 ```bash
@@ -252,7 +252,7 @@ docker compose exec kafka /opt/kafka/bin/kafka-get-offsets.sh \
 ```
 Expected: three lines `plays:0:N`, `plays:1:N`, `plays:2:N` whose offsets sum to 3. The consumer read from the log; it was not a live relay. This is what makes replay possible in M2.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docker-compose.yml
@@ -274,7 +274,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 Connector versioning is independent of the Flink release — `flink-sql-connector-kafka` 3.4.0 and 5.0.0 both exist, and only the ones whose version suffix is `-1.20` are built against Flink 1.20. Getting this wrong surfaces in M4 as a `NoSuchMethodError` at job submission, a long way from its cause, which is why the spec pulls the check forward into M0.
 
-- [ ] **Step 1: Write the manifest**
+- [x] **Step 1: Write the manifest**
 
 ```bash
 mkdir -p flink
@@ -290,7 +290,7 @@ https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.7/postgresql-42.7.
 EOF
 ```
 
-- [ ] **Step 2: Download all three and confirm they are real jars**
+- [x] **Step 2: Download all three and confirm they are real jars**
 
 A `200` on a URL is not proof the artifact is usable — verify each downloads completely and is a valid zip archive with the expected class layout.
 
@@ -307,7 +307,7 @@ done
 ```
 Expected: three files — Kafka connector ~5.4 MB, JDBC connector ~430 KB, Postgres driver ~1.1 MB — and three `OK` lines. No `DOWNLOAD FAILED` and no `BAD`.
 
-- [ ] **Step 3: Confirm each jar registers the factory Flink will look up**
+- [x] **Step 3: Confirm each jar registers the factory Flink will look up**
 
 Flink does not find a connector by class name. It reads the Java SPI file
 `META-INF/services/org.apache.flink.table.factories.Factory` from every jar on
@@ -337,7 +337,7 @@ org.postgresql.Driver
 ```
 Empty output for any jar means the coordinate is wrong even though the download succeeded — re-check the version suffix against https://mvnrepository.com/artifact/org.apache.flink before continuing.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add flink/jars.txt
@@ -352,10 +352,10 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 From the spec's M0 section — all three must hold before starting M1:
 
-- [ ] A message typed into the console producer appears in the console consumer (Task 2, Steps 4–5).
-- [ ] `kafka-topics --describe` shows 3 partitions (Task 2, Step 3).
-- [ ] Connector jar coordinates for Flink 1.20 are verified (Task 3).
+- [x] A message typed into the console producer appears in the console consumer (Task 2, Steps 4–5).
+- [x] `kafka-topics --describe` shows 3 partitions (Task 2, Step 3).
+- [x] Connector jar coordinates for Flink 1.20 are verified (Task 3).
 
 And one check the spec implies but does not state — the stack must come up from cold in one command:
 
-- [ ] **Cold-start check:** `docker compose down -v && docker compose up -d && sleep 45 && docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays` prints a topic with `PartitionCount: 3`. Note `-v` destroys the `kafka-data` volume and with it the three test messages; that is intended here.
+- [x] **Cold-start check:** `docker compose down -v && docker compose up -d && sleep 45 && docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays` prints a topic with `PartitionCount: 3`. Note `-v` destroys the `kafka-data` volume and with it the three test messages; that is intended here.
