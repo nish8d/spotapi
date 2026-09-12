@@ -1,0 +1,8 @@
+# Flink 1.20 connector jars, baked into the image by flink/Dockerfile (M4).
+# Version suffix -1.20 is load-bearing: connectors are versioned independently
+# of Flink, and a jar built against another minor release fails at job
+# submission, not at image build.
+# Verified against Maven Central 2026-09-12.
+https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.4.0-1.20/flink-sql-connector-kafka-3.4.0-1.20.jar
+https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/3.3.0-1.20/flink-connector-jdbc-3.3.0-1.20.jar
+https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.7/postgresql-42.7.7.jar

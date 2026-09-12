@@ -305,18 +305,37 @@ for j in "$tmp"/*.jar; do
   if unzip -t "$j" > /dev/null 2>&1; then echo "OK   $(basename "$j")"; else echo "BAD  $(basename "$j")"; fi
 done
 ```
-Expected: three files — the Kafka connector tens of MB, the JDBC connector a few hundred KB, the Postgres driver about 1 MB — and three `OK` lines. No `DOWNLOAD FAILED` and no `BAD`.
+Expected: three files — Kafka connector ~5.4 MB, JDBC connector ~430 KB, Postgres driver ~1.1 MB — and three `OK` lines. No `DOWNLOAD FAILED` and no `BAD`.
 
-- [ ] **Step 3: Confirm each jar contains the class Flink will look for**
+- [ ] **Step 3: Confirm each jar registers the factory Flink will look up**
+
+Flink does not find a connector by class name. It reads the Java SPI file
+`META-INF/services/org.apache.flink.table.factories.Factory` from every jar on
+the classpath and matches `'connector' = '...'` against what those factories
+declare. A jar containing the right class but missing the SPI entry is invisible
+to Flink, so check the registration, not the class.
 
 Run:
 ```bash
-unzip -l "$tmp"/flink-sql-connector-kafka-*.jar | grep -c 'KafkaDynamicTableFactory.class'
-unzip -l "$tmp"/flink-connector-jdbc-*.jar     | grep -c 'JdbcDynamicTableFactory.class'
-unzip -l "$tmp"/postgresql-*.jar               | grep -c 'org/postgresql/Driver.class'
+for j in "$tmp"/flink-sql-connector-kafka-*.jar "$tmp"/flink-connector-jdbc-*.jar; do
+  echo "--- $(basename "$j") ---"
+  unzip -p "$j" META-INF/services/org.apache.flink.table.factories.Factory | grep -v '^#' | grep .
+done
+unzip -p "$tmp"/postgresql-*.jar META-INF/services/java.sql.Driver
 rm -rf "$tmp"
 ```
-Expected: `1`, `1`, `1`. These three factory/driver classes are what resolve `'connector' = 'kafka'`, `'connector' = 'jdbc'`, and the `jdbc:postgresql:` URL at runtime. A `0` on any line means the coordinate is wrong even though the download succeeded — re-check the version suffix against https://mvnrepository.com/artifact/org.apache.flink before continuing.
+Expected:
+```
+--- flink-sql-connector-kafka-3.4.0-1.20.jar ---
+org.apache.flink.streaming.connectors.kafka.table.KafkaDynamicTableFactory
+org.apache.flink.streaming.connectors.kafka.table.UpsertKafkaDynamicTableFactory
+--- flink-connector-jdbc-3.3.0-1.20.jar ---
+org.apache.flink.connector.jdbc.catalog.factory.JdbcCatalogFactory
+org.apache.flink.connector.jdbc.core.table.JdbcDynamicTableFactory
+org.apache.flink.connector.jdbc.core.database.catalog.factory.JdbcCatalogFactory
+org.postgresql.Driver
+```
+Empty output for any jar means the coordinate is wrong even though the download succeeded — re-check the version suffix against https://mvnrepository.com/artifact/org.apache.flink before continuing.
 
 - [ ] **Step 4: Commit**
 
