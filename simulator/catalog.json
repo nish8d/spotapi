@@ -1,0 +1,228 @@
+{
+  "tracks": [
+    {
+      "track_id": "5V43wymoPA2HzkGpYvfXnk",
+      "track_name": "Mr. Brightside",
+      "artist_name": "The Killers",
+      "album_name": "Hot Fuss",
+      "duration_ms": 222075
+    },
+    {
+      "track_id": "zcX6muHa1zlnDG5P0OwnVp",
+      "track_name": "Somebody Told Me",
+      "artist_name": "The Killers",
+      "album_name": "Hot Fuss",
+      "duration_ms": 197120
+    },
+    {
+      "track_id": "sVf5YyHTMDCyhEd8GYQ6BG",
+      "track_name": "All These Things That I've Done",
+      "artist_name": "The Killers",
+      "album_name": "Hot Fuss",
+      "duration_ms": 302000
+    },
+    {
+      "track_id": "lIp8qX2uuI0JZEMCCM9pJF",
+      "track_name": "Smile Like You Mean It",
+      "artist_name": "The Killers",
+      "album_name": "Hot Fuss",
+      "duration_ms": 234000
+    },
+    {
+      "track_id": "hDvnpqOBobqHsGPO42dcJn",
+      "track_name": "15 Step",
+      "artist_name": "Radiohead",
+      "album_name": "In Rainbows",
+      "duration_ms": 237000
+    },
+    {
+      "track_id": "T2wGZmHKu2KN6CyDpxcj7F",
+      "track_name": "Bodysnatchers",
+      "artist_name": "Radiohead",
+      "album_name": "In Rainbows",
+      "duration_ms": 242000
+    },
+    {
+      "track_id": "fWpZcIhUCjkyUHBm21sfJ7",
+      "track_name": "Nude",
+      "artist_name": "Radiohead",
+      "album_name": "In Rainbows",
+      "duration_ms": 255000
+    },
+    {
+      "track_id": "qjCHkvbNKi2MuJH3ZAa995",
+      "track_name": "Weird Fishes/Arpeggi",
+      "artist_name": "Radiohead",
+      "album_name": "In Rainbows",
+      "duration_ms": 318000
+    },
+    {
+      "track_id": "9zR63HdBYnUhazbDHCEWn7",
+      "track_name": "Dreams",
+      "artist_name": "Fleetwood Mac",
+      "album_name": "Rumours",
+      "duration_ms": 257000
+    },
+    {
+      "track_id": "pJjY2TYIBmppUL1jNwVPC7",
+      "track_name": "Go Your Own Way",
+      "artist_name": "Fleetwood Mac",
+      "album_name": "Rumours",
+      "duration_ms": 223000
+    },
+    {
+      "track_id": "9isBrXJFR5OEhTivvxwHAC",
+      "track_name": "The Chain",
+      "artist_name": "Fleetwood Mac",
+      "album_name": "Rumours",
+      "duration_ms": 270000
+    },
+    {
+      "track_id": "bh3IqJNCubnxpIOP5ATNhF",
+      "track_name": "Second Hand News",
+      "artist_name": "Fleetwood Mac",
+      "album_name": "Rumours",
+      "duration_ms": 163000
+    },
+    {
+      "track_id": "WGrDsJZ7X1czYoQU0Pssgk",
+      "track_name": "Money Trees",
+      "artist_name": "Kendrick Lamar",
+      "album_name": "good kid, m.A.A.d city",
+      "duration_ms": 386000
+    },
+    {
+      "track_id": "5WTsmr1XvYEJWGDUIYY8Rr",
+      "track_name": "Swimming Pools (Drank)",
+      "artist_name": "Kendrick Lamar",
+      "album_name": "good kid, m.A.A.d city",
+      "duration_ms": 313000
+    },
+    {
+      "track_id": "ECz2NMUA9o224hQxmv9KgR",
+      "track_name": "Bitch, Don't Kill My Vibe",
+      "artist_name": "Kendrick Lamar",
+      "album_name": "good kid, m.A.A.d city",
+      "duration_ms": 310000
+    },
+    {
+      "track_id": "F8TLSy89e8Bl0idrxM2BgY",
+      "track_name": "Poetic Justice",
+      "artist_name": "Kendrick Lamar",
+      "album_name": "good kid, m.A.A.d city",
+      "duration_ms": 300000
+    },
+    {
+      "track_id": "cr65uYoSuLHfc9WtcDCAB8",
+      "track_name": "One More Time",
+      "artist_name": "Daft Punk",
+      "album_name": "Discovery",
+      "duration_ms": 320357
+    },
+    {
+      "track_id": "zuXwIl5ooAZaC2oQW4HtVh",
+      "track_name": "Digital Love",
+      "artist_name": "Daft Punk",
+      "album_name": "Discovery",
+      "duration_ms": 301000
+    },
+    {
+      "track_id": "mvEE33nRDw0vfFUNcxO9us",
+      "track_name": "Harder, Better, Faster, Stronger",
+      "artist_name": "Daft Punk",
+      "album_name": "Discovery",
+      "duration_ms": 224000
+    },
+    {
+      "track_id": "TjenNevxRyFsEVnBeGqU4P",
+      "track_name": "Something About Us",
+      "artist_name": "Daft Punk",
+      "album_name": "Discovery",
+      "duration_ms": 232000
+    },
+    {
+      "track_id": "EHvlBEA9jyocWYZ4DGMpJc",
+      "track_name": "Sinnerman",
+      "artist_name": "Nina Simone",
+      "album_name": "Pastel Blues",
+      "duration_ms": 604000
+    },
+    {
+      "track_id": "zhhChkVKgLiZO3OSbF8msV",
+      "track_name": "Be My Husband",
+      "artist_name": "Nina Simone",
+      "album_name": "Pastel Blues",
+      "duration_ms": 149000
+    },
+    {
+      "track_id": "ugzj3iBouS9IxQGwCsqcbW",
+      "track_name": "Strange Fruit",
+      "artist_name": "Nina Simone",
+      "album_name": "Pastel Blues",
+      "duration_ms": 170000
+    },
+    {
+      "track_id": "Y6rKtbXsa41qo4YWHKBmin",
+      "track_name": "Tell Me More and More",
+      "artist_name": "Nina Simone",
+      "album_name": "Pastel Blues",
+      "duration_ms": 218000
+    },
+    {
+      "track_id": "2eJrVKvI7vE8qOX58CARG1",
+      "track_name": "Archangel",
+      "artist_name": "Burial",
+      "album_name": "Untrue",
+      "duration_ms": 240000
+    },
+    {
+      "track_id": "PmZpLUIkna9KEQqPBGObqr",
+      "track_name": "Near Dark",
+      "artist_name": "Burial",
+      "album_name": "Untrue",
+      "duration_ms": 235000
+    },
+    {
+      "track_id": "LHGc7tAxGXa245jDSLGYFn",
+      "track_name": "Ghost Hardware",
+      "artist_name": "Burial",
+      "album_name": "Untrue",
+      "duration_ms": 320000
+    },
+    {
+      "track_id": "iXw1p790niI1auSBKX2Yem",
+      "track_name": "Etched Headplate",
+      "artist_name": "Burial",
+      "album_name": "Untrue",
+      "duration_ms": 290000
+    },
+    {
+      "track_id": "A2Zn5FNHjo6VK8M7eRGw2v",
+      "track_name": "Once in a Lifetime",
+      "artist_name": "Talking Heads",
+      "album_name": "Remain in Light",
+      "duration_ms": 259000
+    },
+    {
+      "track_id": "gKiKmgIafvi8Sz6OTlecK9",
+      "track_name": "Born Under Punches",
+      "artist_name": "Talking Heads",
+      "album_name": "Remain in Light",
+      "duration_ms": 349000
+    },
+    {
+      "track_id": "aS97CCoxREOIE7AUghSCW2",
+      "track_name": "Crosseyed and Painless",
+      "artist_name": "Talking Heads",
+      "album_name": "Remain in Light",
+      "duration_ms": 286000
+    },
+    {
+      "track_id": "dKNRBAhDszIq1kSkA8d1Bb",
+      "track_name": "Houses in Motion",
+      "artist_name": "Talking Heads",
+      "album_name": "Remain in Light",
+      "duration_ms": 272000
+    }
+  ]
+}
