@@ -71,5 +71,21 @@ services:
         echo "--- plays ---"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays
 
+  simulator:
+    build: .
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: plays
+      SIM_LISTENERS: 20
+      SIM_SPEED: 1.0
+      SIM_LATE_EVENT_RATE: 0.0
+      SIM_MODE: live
+    restart: unless-stopped
+
 volumes:
   kafka-data:
