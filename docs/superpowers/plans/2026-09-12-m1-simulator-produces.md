@@ -1,6 +1,6 @@
 # M1 — Simulator Produces: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Produce well-formed `PlayEvent` JSON onto the `plays` topic from a simulator of N virtual listeners, keyed so that one listener's events always land on one partition.
 
@@ -73,7 +73,7 @@ Four things import it: both producers, the throwaway M2 consumer, and the tests.
   - `to_iso(ts: datetime) -> str`, `from_iso(s: str) -> datetime`
   - `EVENT_ID_ROUNDING_SECONDS = 5`
 
-- [ ] **Step 1: Create the venv and dependency manifests**
+- [x] **Step 1: Create the venv and dependency manifests**
 
 ```bash
 cat > requirements.txt <<'EOF'
@@ -107,7 +107,7 @@ python3 -m venv .venv
 ```
 Expected: `deps ok ('2.6.1', ...)`. `.venv/` is already gitignored.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # tests/test_schema.py
@@ -230,12 +230,12 @@ def test_create_populates_event_id_consistently_with_compute_event_id():
     )
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_schema.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'events'`.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 ```python
 # events/schema.py
@@ -361,12 +361,12 @@ Also create the empty package marker:
 touch events/__init__.py
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_schema.py -q`
 Expected: `13 passed`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add requirements.txt requirements-dev.txt pytest.ini .dockerignore events/ tests/test_schema.py
@@ -391,7 +391,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   - `KafkaSink.flush(timeout: float = 10.0) -> int` — returns messages still undelivered.
   - `KafkaSink.delivery_failures: int` — count of failed deliveries seen so far.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_kafka_sink.py
@@ -504,12 +504,12 @@ def test_flush_delegates_to_the_producer():
     assert fake.flushed is True
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_kafka_sink.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'producer'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # producer/kafka_sink.py
@@ -582,12 +582,12 @@ Also create the empty package marker:
 touch producer/__init__.py
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_kafka_sink.py -q`
 Expected: `8 passed`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add producer/ tests/test_kafka_sink.py
@@ -613,7 +613,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 The IDs are generated from `sha1(artist|track)` rendered in base62 and truncated to 22 characters, which is the shape of a real Spotify track ID. They are stable across regeneration and obviously not real IDs.
 
-- [ ] **Step 1: Generate `simulator/catalog.json`**
+- [x] **Step 1: Generate `simulator/catalog.json`**
 
 ```bash
 mkdir -p simulator
@@ -672,7 +672,7 @@ GEN
 ```
 Expected: `wrote 32 tracks across 8 albums`.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```python
 # tests/test_simulator.py
@@ -703,12 +703,12 @@ def test_artists_are_unique_and_sorted():
     assert len(names) == 8
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'simulator.catalog'`.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 ```python
 # simulator/catalog.py
@@ -751,12 +751,12 @@ Also create the empty package marker:
 touch simulator/__init__.py
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
 Expected: `4 passed`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add simulator/__init__.py simulator/catalog.py simulator/catalog.json tests/test_simulator.py
@@ -787,7 +787,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 **The `fixture` event set:** 12 events over 3 minutes from `2026-01-01T00:00:00Z`, split 5 / 4 / 3 across the three one-minute tumbling windows, across two listeners. M4 asserts those counts.
 
-- [ ] **Step 1: Write the failing tests (append to `tests/test_simulator.py`)**
+- [x] **Step 1: Write the failing tests (append to `tests/test_simulator.py`)**
 
 ```python
 from datetime import datetime, timedelta, timezone
@@ -886,12 +886,12 @@ def test_fixture_events_round_trip_through_the_schema():
         assert PlayEvent.from_json(event.to_json()) == event
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'simulator.main'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 # simulator/main.py
@@ -1091,12 +1091,12 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest -q`
 Expected: `38 passed` (13 schema + 8 sink + 17 simulator).
 
-- [ ] **Step 5: Write the Dockerfile**
+- [x] **Step 5: Write the Dockerfile**
 
 ```bash
 cat > Dockerfile <<'EOF'
@@ -1120,7 +1120,7 @@ CMD ["python", "-m", "simulator.main"]
 EOF
 ```
 
-- [ ] **Step 6: Add the Compose service**
+- [x] **Step 6: Add the Compose service**
 
 Insert before the `volumes:` block in `docker-compose.yml`:
 
@@ -1142,7 +1142,7 @@ Insert before the `volumes:` block in `docker-compose.yml`:
     restart: unless-stopped
 ```
 
-- [ ] **Step 7: Build and start it**
+- [x] **Step 7: Build and start it**
 
 Run:
 ```bash
@@ -1151,7 +1151,7 @@ docker compose logs --tail 5 simulator
 ```
 Expected: a line like `live mode: 20 listeners, speed x1.0, late rate 0.00` and no traceback.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add simulator/main.py Dockerfile docker-compose.yml tests/test_simulator.py
@@ -1170,7 +1170,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: the running `simulator` service and the `plays` topic.
 - Produces: evidence for both of M1's acceptance criteria.
 
-- [ ] **Step 1: Confirm the consumer sees well-formed JSON (acceptance criterion 1)**
+- [x] **Step 1: Confirm the consumer sees well-formed JSON (acceptance criterion 1)**
 
 Run:
 ```bash
@@ -1181,7 +1181,7 @@ docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
 ```
 Expected: five lines, each `Partition:<n>\t<listener-id>\t{...json...}`. Every payload parses as JSON and carries all ten spec fields with `"is_synthetic":true`.
 
-- [ ] **Step 2: Confirm one listener's events all land on one partition (acceptance criterion 2)**
+- [x] **Step 2: Confirm one listener's events all land on one partition (acceptance criterion 2)**
 
 Run:
 ```bash
@@ -1201,7 +1201,7 @@ docker compose exec -T kafka /opt/kafka/bin/kafka-get-offsets.sh \
 ```
 Expected: all three of `plays:0`, `plays:1`, `plays:2` at non-zero offsets.
 
-- [ ] **Step 3: Confirm fixture mode is deterministic**
+- [x] **Step 3: Confirm fixture mode is deterministic**
 
 Run:
 ```bash
@@ -1209,7 +1209,7 @@ docker compose run --rm -e SIM_MODE=fixture simulator | tail -2
 ```
 Expected: `fixture mode: sent 12 events, 0 undelivered`. Running it a second time sends the same 12 `event_id`s — which is the point: replaying the fixture is a no-op once the sinks upsert.
 
-- [ ] **Step 4: Commit nothing; record the result**
+- [x] **Step 4: Commit nothing; record the result**
 
 Verification only. If both criteria hold, M1 is complete.
 
@@ -1219,10 +1219,27 @@ Verification only. If both criteria hold, M1 is complete.
 
 From the spec's M1 section:
 
-- [ ] The console consumer shows well-formed JSON events (Task 5, Step 1).
-- [ ] Messages for a given `listener_id` all land on the same partition (Task 5, Step 2).
+- [x] The console consumer shows well-formed JSON events (Task 5, Step 1).
+- [x] Messages for a given `listener_id` all land on the same partition (Task 5, Step 2).
 
 Plus the project's own standards:
 
-- [ ] `.venv/bin/pytest -q` is green (38 tests).
-- [ ] `docker compose up -d --build` from cold reaches a producing simulator.
+- [x] `.venv/bin/pytest -q` is green (38 tests).
+- [x] `docker compose up -d --build` from cold reaches a producing simulator.
+
+---
+
+## Finding for M4: fixture mode needs a clean topic
+
+Running `SIM_MODE=fixture` against the *live* topic writes 12 events stamped
+`2026-01-01` into a log that already holds events stamped today. In M4, Flink
+reads from `earliest-offset` and advances its watermark as it goes — so by the
+time it reaches the fixture events sitting after the live ones in the log, the
+watermark is months ahead of them and they are dropped as late. The integration
+test would then assert on rows that never arrive.
+
+The fix belongs in M4, not here: run the fixture suite against a topic with no
+live data in it — either tear the stack down with `docker compose down -v` first,
+or point the test at a separate topic via `KAFKA_TOPIC`. `KafkaSink` already
+takes the topic as a parameter and the simulator already reads `KAFKA_TOPIC`, so
+no code change is needed.
