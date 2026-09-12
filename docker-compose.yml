@@ -106,9 +106,50 @@ services:
       KAFKA_BOOTSTRAP: kafka:9092
       KAFKA_TOPIC: plays
       SIM_LISTENERS: 20
-      SIM_SPEED: 1.0
+      SIM_SPEED: ${SIM_SPEED:-1.0}
       SIM_LATE_EVENT_RATE: 0.0
       SIM_MODE: live
+    restart: unless-stopped
+
+  consumer:
+    build: .
+    # The image's CMD runs the simulator; this service runs the consumer.
+    command: ["python", "-m", "consumer.main"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: plays
+      CONSUMER_GROUP: raw-plays-writer
+      POSTGRES_DSN: postgresql://spot:spot@postgres:5432/spot
+    # No container_name: `docker compose up --scale consumer=2` needs to be
+    # free to name the replicas, and that scale-up is one of M2's exercises.
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Local, single-user, no data worth protecting: skip the login wall.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    # Deliberately no named volume. Everything Grafana knows comes from the
+    # two directories above, both in git. Persistent storage would only give
+    # UI-made changes somewhere to hide.
     restart: unless-stopped
 
 volumes:

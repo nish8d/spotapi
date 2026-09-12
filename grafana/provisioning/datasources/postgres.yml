@@ -1,0 +1,21 @@
+# Provisioned at startup. The UI shows this datasource as non-editable, which
+# is intentional: the datasource is code, and a change made in the browser
+# would vanish on the next `docker compose up`.
+apiVersion: 1
+
+datasources:
+  - name: Postgres
+    # Dashboards reference this uid, so it must stay stable.
+    uid: spot-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: spot
+    user: spot
+    secureJsonData:
+      password: spot
+    jsonData:
+      sslmode: disable
+      timescaledb: false
+    isDefault: true
+    editable: false

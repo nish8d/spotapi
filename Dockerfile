@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY events/ events/
 COPY producer/ producer/
+COPY consumer/ consumer/
 COPY simulator/ simulator/
 
 # Unbuffered so container logs appear immediately rather than in blocks.

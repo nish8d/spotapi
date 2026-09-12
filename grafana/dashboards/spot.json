@@ -1,0 +1,106 @@
+{
+  "uid": "spot-live",
+  "title": "spot — live",
+  "tags": ["spot"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Plays per minute, by listener",
+      "description": "Counted straight from raw_plays with date_trunc. M4 repoints this at agg_plays_per_minute, where Flink has done the same bucketing in the stream instead of at query time.",
+      "datasource": { "type": "postgres", "uid": "spot-postgres" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "spot-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('minute', started_at) AS time, listener_id AS metric, count(*) AS value FROM raw_plays WHERE $__timeFilter(started_at) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Now playing",
+      "description": "The most recent play per listener. DISTINCT ON is Postgres-specific and is the cheapest way to take one row per group.",
+      "datasource": { "type": "postgres", "uid": "spot-postgres" },
+      "gridPos": { "h": 10, "w": 14, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "started_at" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsIso" }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "started_at", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "spot-postgres" },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (listener_id) listener_id, track_name, artist_name, is_synthetic, started_at FROM raw_plays ORDER BY listener_id, started_at DESC"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Event-time skew (observed_at − started_at)",
+      "description": "How far behind the event time each observation was. This is the only panel that reads observed_at: it is retained to chart poll drift and is never used for windowing.",
+      "datasource": { "type": "postgres", "uid": "spot-postgres" },
+      "gridPos": { "h": 10, "w": 10, "x": 14, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "spot-postgres" },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('minute', observed_at) AS time, avg(extract(epoch FROM observed_at - started_at)) AS \"avg skew\", max(extract(epoch FROM observed_at - started_at)) AS \"max skew\" FROM raw_plays WHERE $__timeFilter(observed_at) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}
