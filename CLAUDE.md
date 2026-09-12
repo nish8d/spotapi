@@ -4,9 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**Design approved, nothing implemented.** The repo contains only the spec and
-this file. There is no `docker-compose.yml`, no Python package, no test runner,
-and no dependency manifest yet — M0 and M1 create them.
+**M0, M1 and M2 complete. Next is M3, the real Spotify poller.**
+
+`docker compose up -d --build` from cold brings up Kafka, Postgres, the
+simulator, the throwaway consumer and Grafana, and fills a live dashboard at
+`http://localhost:3000/d/spot-live` (no login). `.venv/bin/pytest -q` runs 52
+unit tests against fakes — no test contacts a broker, a database, or Spotify.
+
+What exists: `events/schema.py`, `producer/kafka_sink.py`, `simulator/`,
+`consumer/`, `postgres/init.sql`, `grafana/`. What does not: `poller/` (M3)
+and `flink/sql/` (M4-M6); `flink/jars.txt` holds the verified coordinates.
+The three `agg_` tables exist and are empty until Flink fills them.
+
+Two things to know before working here:
+
+- **Host port 5432 is taken by an unrelated local Postgres**, so Compose maps
+  Postgres to `55432:5432`. Containers still use `postgres:5432`.
+- **`consumer/` is scheduled for deletion in M4.** Do not invest in it. See
+  the note on deliberate inefficiency below.
 
 The authoritative design is
 `docs/superpowers/specs/2026-09-11-spotify-streaming-pipeline-design.md`.

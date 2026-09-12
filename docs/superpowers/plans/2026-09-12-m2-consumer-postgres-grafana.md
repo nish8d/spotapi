@@ -1,6 +1,6 @@
 # M2 — First Heartbeat: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A deliberately throwaway Python consumer reads the `plays` topic, upserts every event into Postgres `raw_plays`, and a Grafana dashboard provisioned from git shows a rising play count.
 
@@ -71,7 +71,7 @@ The interesting logic in M2 is not the SQL, it is *when the offset is committed 
 - Consumes: nothing.
 - Produces: a reachable database `spot` as user `spot`, password `spot`, on `postgres:5432` inside Compose and `localhost:55432` from the host. Tables `raw_plays`, `agg_plays_per_minute`, `agg_top_artists`, `agg_sessions`.
 
-- [ ] **Step 1: Write the schema**
+- [x] **Step 1: Write the schema**
 
 ```bash
 mkdir -p postgres
@@ -136,7 +136,7 @@ CREATE TABLE agg_sessions (
 EOF
 ```
 
-- [ ] **Step 2: Add the Postgres service to Compose**
+- [x] **Step 2: Add the Postgres service to Compose**
 
 Insert this service after `kafka-init` and before `simulator` in `docker-compose.yml`:
 
@@ -174,7 +174,7 @@ volumes:
   postgres-data:
 ```
 
-- [ ] **Step 3: Start Postgres and verify the schema landed**
+- [x] **Step 3: Start Postgres and verify the schema landed**
 
 ```bash
 docker compose up -d postgres
@@ -192,7 +192,7 @@ docker compose exec -T postgres psql -U spot -d spot -c \
 
 Expected: a row with `contype` = `p` (primary key).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add postgres/init.sql docker-compose.yml
@@ -216,7 +216,7 @@ git commit -m "M2: Postgres with the full schema, all four tables"
   - `PostgresSink.close(self) -> None`
   - `UPSERT_SQL: str` — module-level, so the test can assert on its shape.
 
-- [ ] **Step 1: Add the dependency**
+- [x] **Step 1: Add the dependency**
 
 ```bash
 printf 'psycopg[binary]==3.2.9\n' >> requirements.txt
@@ -225,7 +225,7 @@ printf 'psycopg[binary]==3.2.9\n' >> requirements.txt
 
 Verify: `.venv/bin/python -c "import psycopg; print(psycopg.__version__)"` prints `3.2.9`.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```bash
 mkdir -p consumer && touch consumer/__init__.py
@@ -346,12 +346,12 @@ def test_failed_write_rolls_back_and_raises_without_committing():
 EOF
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_pg_sink.py -q`
 Expected: collection error, `ModuleNotFoundError: No module named 'consumer.pg_sink'`.
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 ```bash
 cat > consumer/pg_sink.py <<'EOF'
@@ -463,14 +463,14 @@ class PostgresSink:
 EOF
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_pg_sink.py -q`
 Expected: 5 passed.
 
 Then the whole suite: `.venv/bin/pytest -q` — expected 43 passed (38 from M1 + 5).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add requirements.txt consumer/__init__.py consumer/pg_sink.py tests/test_pg_sink.py
@@ -506,7 +506,7 @@ messages and would never see them again. To actually retry the batch you must
 seek back explicitly. That is what `rewind` does, and the test asserting it is
 the most valuable test in this milestone.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```bash
 cat > tests/test_consumer.py <<'EOF'
@@ -731,12 +731,12 @@ def _once():
 EOF
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_consumer.py -q`
 Expected: collection error, `ModuleNotFoundError: No module named 'consumer.main'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```bash
 cat > consumer/main.py <<'EOF'
@@ -939,14 +939,14 @@ if __name__ == "__main__":
 EOF
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_consumer.py -q`
 Expected: 9 passed.
 
 Then the whole suite: `.venv/bin/pytest -q` — expected 52 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add consumer/main.py tests/test_consumer.py
@@ -964,7 +964,7 @@ git commit -m "M2: consumer loop, committing offsets only after the write lands"
 - Consumes: Tasks 1-3.
 - Produces: a `consumer` service, group `raw-plays-writer`, filling `raw_plays`.
 
-- [ ] **Step 1: Add `consumer/` to the image**
+- [x] **Step 1: Add `consumer/` to the image**
 
 In `Dockerfile`, after the `COPY producer/ producer/` line, add:
 
@@ -972,7 +972,7 @@ In `Dockerfile`, after the `COPY producer/ producer/` line, add:
 COPY consumer/ consumer/
 ```
 
-- [ ] **Step 2: Add the consumer service to Compose**
+- [x] **Step 2: Add the consumer service to Compose**
 
 Insert after the `simulator` service:
 
@@ -998,7 +998,7 @@ Insert after the `simulator` service:
     restart: unless-stopped
 ```
 
-- [ ] **Step 3: Make `SIM_SPEED` overridable from the shell**
+- [x] **Step 3: Make `SIM_SPEED` overridable from the shell**
 
 The lag exercise in Task 6 needs to turn the simulator's volume up and back
 down. Hardcoded in `docker-compose.yml`, that means editing a tracked file
@@ -1020,7 +1020,7 @@ SIM_SPEED=60 docker compose config | grep -A1 SIM_SPEED
 
 Expected: `1.0` in the first, `60` in the second.
 
-- [ ] **Step 4: Bring the stack up and confirm rows land**
+- [x] **Step 4: Bring the stack up and confirm rows land**
 
 ```bash
 docker compose up -d --build
@@ -1045,7 +1045,7 @@ docker compose exec -T postgres psql -U spot -d spot -c "SELECT count(*) FROM ra
 
 Expected: a non-zero count that is strictly larger on the second run.
 
-- [ ] **Step 5: Confirm the upsert, not just the insert**
+- [x] **Step 5: Confirm the upsert, not just the insert**
 
 This is the invariant-3 check, done cheaply before the full replay exercise in Task 6:
 
@@ -1056,7 +1056,7 @@ docker compose exec -T postgres psql -U spot -d spot -c \
 
 Expected: the two numbers are equal. They are trivially equal given `event_id` is the primary key — the point of running it is that it would be *impossible* for them to differ, which is exactly the guarantee the primary key buys.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml
@@ -1075,7 +1075,7 @@ git commit -m "M2: run the consumer under Compose, raw_plays filling"
 - Consumes: the `raw_plays` table from Task 1, filled by Task 4.
 - Produces: a Grafana at `http://localhost:3000` with a dashboard titled `spot — live`, datasource uid `spot-postgres`.
 
-- [ ] **Step 1: Write the datasource**
+- [x] **Step 1: Write the datasource**
 
 ```bash
 mkdir -p grafana/provisioning/datasources grafana/provisioning/dashboards grafana/dashboards
@@ -1104,7 +1104,7 @@ datasources:
 EOF
 ```
 
-- [ ] **Step 2: Write the dashboard provider**
+- [x] **Step 2: Write the dashboard provider**
 
 ```bash
 cat > grafana/provisioning/dashboards/spot.yml <<'EOF'
@@ -1126,7 +1126,7 @@ providers:
 EOF
 ```
 
-- [ ] **Step 3: Write the dashboard**
+- [x] **Step 3: Write the dashboard**
 
 The spec's "Dashboard" section lists six panels. Three can be built now,
 because `raw_plays` is the only table with data in it until M4:
@@ -1256,14 +1256,14 @@ cat > grafana/dashboards/spot.json <<'EOF'
 EOF
 ```
 
-- [ ] **Step 4: Validate the JSON before handing it to Grafana**
+- [x] **Step 4: Validate the JSON before handing it to Grafana**
 
 A malformed dashboard fails silently — Grafana logs it and shows an empty list, which is a confusing way to find a missing comma.
 
 Run: `.venv/bin/python -m json.tool grafana/dashboards/spot.json > /dev/null && echo "valid JSON"`
 Expected: `valid JSON`.
 
-- [ ] **Step 5: Add the Grafana service to Compose**
+- [x] **Step 5: Add the Grafana service to Compose**
 
 Insert after the `consumer` service:
 
@@ -1290,7 +1290,7 @@ Insert after the `consumer` service:
     restart: unless-stopped
 ```
 
-- [ ] **Step 6: Start Grafana and verify provisioning took**
+- [x] **Step 6: Start Grafana and verify provisioning took**
 
 ```bash
 docker compose up -d grafana
@@ -1308,7 +1308,7 @@ curl -s "http://localhost:3000/api/search?query=spot" | python3 -m json.tool | g
 
 Expected: a `postgres` datasource with uid `spot-postgres`, and a dashboard titled `spot — live` with uid `spot-live`.
 
-- [ ] **Step 7: Verify the acceptance criterion — a rising play count**
+- [x] **Step 7: Verify the acceptance criterion — a rising play count**
 
 Query the first panel's SQL through Grafana's own datasource proxy, so a pass proves the datasource works and not merely that the table has rows:
 
@@ -1324,7 +1324,7 @@ Expected: two numbers, the second larger.
 
 Then open `http://localhost:3000/d/spot-live` and confirm by eye that the plays-per-minute bars are climbing and the now-playing table lists your listeners. **This is M2's stated acceptance criterion — a Grafana panel showing a rising play count.**
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add grafana/ docker-compose.yml
@@ -1341,7 +1341,7 @@ These are the reason M2 exists. Once Flink takes over in M4, the consumer group
 is managed inside a job graph and none of the following is directly visible. Run
 each one and read the output before moving on.
 
-- [ ] **Step 1: Watch a rebalance**
+- [x] **Step 1: Watch a rebalance**
 
 With one consumer running it holds all three partitions. Add a second:
 
@@ -1374,7 +1374,7 @@ Scale back down:
 docker compose up -d --scale consumer=1
 ```
 
-- [ ] **Step 2: Build lag, then watch it drain**
+- [x] **Step 2: Build lag, then watch it drain**
 
 Stop the consumer while the simulator keeps producing, and turn the volume up:
 
@@ -1416,7 +1416,7 @@ rather than a data loss. Restore normal speed afterwards:
 SIM_SPEED=1.0 docker compose up -d simulator
 ```
 
-- [ ] **Step 3: Reset the offsets and replay the entire topic**
+- [x] **Step 3: Reset the offsets and replay the entire topic**
 
 This is the payoff for invariants 2 and 3. Record the row count first:
 
@@ -1466,7 +1466,7 @@ If the count did grow, check that the simulator really stopped before you took
 the baseline — `docker compose ps simulator` — rather than suspecting the
 upsert.
 
-- [ ] **Step 4: Record what was observed**
+- [x] **Step 4: Record what was observed**
 
 No commit of code. Append a short "Exercise results" section to this plan file
 with the actual numbers seen — the partition split, the peak lag, and the
@@ -1479,12 +1479,12 @@ run are worth more later than the expectations written above.
 
 **Files:** Modify: this plan file, `CLAUDE.md`
 
-- [ ] **Step 1: Verify the full suite is green**
+- [x] **Step 1: Verify the full suite is green**
 
 Run: `.venv/bin/pytest -q`
 Expected: 52 passed.
 
-- [ ] **Step 2: Verify a cold start reaches a working dashboard**
+- [x] **Step 2: Verify a cold start reaches a working dashboard**
 
 ```bash
 docker compose down -v
@@ -1501,28 +1501,28 @@ Expected: all services up, a non-zero row count, and `200`.
 `postgres/init.sql` runs again from scratch and the topic is recreated. If the
 schema only exists because of a manual `psql` command run earlier, this catches it.
 
-- [ ] **Step 3: Check the milestone acceptance criteria**
+- [x] **Step 3: Check the milestone acceptance criteria**
 
 From the spec's M2 section:
 
-- [ ] A Grafana panel shows a rising play count (Task 5, Step 7).
-- [ ] Two consumers in one group rebalance partitions between them (Task 6, Step 1).
-- [ ] Stopping the consumer builds lag; restarting drains it (Task 6, Step 2).
-- [ ] Resetting the group offset to 0 replays the topic and adds no rows (Task 6, Step 3).
+- [x] A Grafana panel shows a rising play count (Task 5, Step 7).
+- [x] Two consumers in one group rebalance partitions between them (Task 6, Step 1).
+- [x] Stopping the consumer builds lag; restarting drains it (Task 6, Step 2).
+- [x] Resetting the group offset to 0 replays the topic and adds no rows (Task 6, Step 3).
 
 Plus the project's own standards:
 
-- [ ] `.venv/bin/pytest -q` is green.
-- [ ] `docker compose up -d --build` from cold reaches a filled dashboard.
-- [ ] No Flink, no `agg_` writes — those tables exist and are empty.
+- [x] `.venv/bin/pytest -q` is green.
+- [x] `docker compose up -d --build` from cold reaches a filled dashboard.
+- [x] No Flink, no `agg_` writes — those tables exist and are empty.
 
-- [ ] **Step 4: Update CLAUDE.md's "Current state" section**
+- [x] **Step 4: Update CLAUDE.md's "Current state" section**
 
 It still says "Design approved, nothing implemented", which has been wrong since
 M0. Replace that section with an accurate one naming the completed milestones and
 the next one.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-09-12-m2-consumer-postgres-grafana.md CLAUDE.md
@@ -1544,3 +1544,118 @@ this same consumer with no changes. Two things from M2 carry forward:
    acceptance criterion is "play a song, it appears exactly once, let it play
    through, no duplicate rows". That works because of the sink built in Task 2,
    so if it fails in M3, suspect `transition.py` rather than the database.
+
+---
+
+## Exercise results, 2026-09-12
+
+Actual numbers from the run, replacing the expectations written above.
+
+### 1. Rebalance
+
+One consumer held all three partitions. On `--scale consumer=2`:
+
+```
+consumer-1  05:10:53,962 REVOKED  ['plays[0]', 'plays[1]', 'plays[2]']
+consumer-1  05:10:53,964 ASSIGNED ['plays[2]']
+consumer-2  05:10:53,964 ASSIGNED ['plays[0]', 'plays[1]']
+```
+
+The 2/1 split was as predicted. The detail worth keeping: consumer-1 gave up
+*all three* partitions and was handed one back, rather than handing over one.
+Between the revoke and the assignment the whole group consumed nothing — 2ms
+here, but that pause is the cost of a rebalance and it scales with state.
+
+`kafka-consumer-groups --describe` confirmed two distinct `CONSUMER-ID`s on
+hosts `172.18.0.7` (partitions 0, 1) and `172.18.0.5` (partition 2).
+
+### 2. Lag and drain
+
+First attempt built only 313 lag at `SIM_SPEED=60`, which the consumer cleared
+before the first sample — an honest result but a useless demonstration. Rebuilt
+at `SIM_SPEED=1200`:
+
+```
+plays[2]  149 -> 1670   lag 1521
+plays[1]  250 -> 3238   lag 2988
+plays[0]  349 -> 4196   lag 3847
+                  TOTAL 8356
+```
+
+`LAG` is exactly `LOG-END-OFFSET - CURRENT-OFFSET` on every row. With the
+consumer stopped the group showed `has no active members` while the offsets
+stayed frozen.
+
+**8356 messages drained in under 2 seconds** — 1208 remaining at t+0, 0 at t+1.
+The consumer log shows full batches of 100 every 8-9ms, about 11,000 events/sec.
+The database was never close to being the bottleneck, and `BATCH_MAX=100` with
+a single round trip per batch is why. To make backpressure genuinely visible,
+a future exercise would need to throttle the consumer rather than speed up the
+producer.
+
+### 3. Offset reset and replay
+
+Baseline with both producer and consumer stopped: **4251 rows** from **10656
+messages** in the topic.
+
+After `--reset-offsets --to-earliest --execute` (all three partitions to
+`NEW-OFFSET 0`) and restarting the consumer: 107 batches re-read and
+re-written, lag back to 0, and:
+
+```
+ rows_after_replay | distinct_ids
+-------------------+--------------
+              4251 |         4251
+```
+
+**The whole topic was replayed and the table did not grow by one row.** The
+consumer does nothing to detect duplicates; the dedupe is entirely
+`event_id` being deterministic plus a primary key to collide against.
+
+---
+
+## Finding for M4 and M7: `SIM_SPEED` collides `event_id`s
+
+The lag exercise surfaced something that matters beyond M2. At
+`SIM_SPEED=1200` the topic held 10656 messages but only **4251 distinct
+`event_id`s** — 6405 messages were exact duplicates of another message, and
+`raw_plays` ended up with exactly 4251 rows.
+
+These were not replays. They were *genuinely distinct plays* that the
+`event_id` could not tell apart:
+
+```
+listener-10  aS97CCox  started=2026-09-12T05:15:16Z
+listener-10  aS97CCox  started=2026-09-12T05:15:17Z
+listener-10  aS97CCox  started=2026-09-12T05:15:18Z
+```
+
+Three plays, one second apart, all flooring into the same 5-second `event_id`
+bucket, therefore one row.
+
+**Why.** `EVENT_ID_ROUNDING_SECONDS = 5` rests on the spec's assumption that
+distinct plays are "at minimum seconds apart". That holds at `SIM_SPEED=1.0`,
+where tracks are minutes long. But `SIM_SPEED` compresses the wall-clock *wait*
+while `started_at` is still derived from `datetime.now(UTC)` — so at high speed
+one listener emits many plays of a short favourite-artist rotation inside a
+single 5-second bucket, and they collapse.
+
+**Consequences to respect later:**
+
+1. **Do not use a high `SIM_SPEED` to generate volume for windowed
+   aggregations.** M4-M6 assert counts in `agg_` tables. Events silently lost
+   to `event_id` collision before Flink ever sees them would make those counts
+   wrong in a way that looks like a Flink bug. Use `SIM_LISTENERS` to raise
+   volume instead — more listeners do not collide with each other, because
+   `listener_id` is in the hash.
+2. **This is not a reason to change `event_id`.** Invariant 2 is load-bearing
+   and a random UUID would break the replay guarantee demonstrated above. The
+   collision is a property of time compression, not of the design.
+3. If a future milestone genuinely needs high-speed distinct events, the fix is
+   to make the simulator advance a *virtual* clock for `started_at` rather than
+   reusing wall clock, so compressed time produces compressed-but-distinct
+   event times. That is a simulator change, not a schema change.
+
+Also carried forward from M1 and confirmed here: the topic contained exactly 12
+duplicate `event_id`s from `SIM_MODE=fixture` having been run twice. The
+fixture suite still needs a clean topic in M4.
