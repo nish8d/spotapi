@@ -71,6 +71,30 @@ services:
         echo "--- plays ---"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      # Host 5432 is taken by an unrelated local Postgres, hence 55432.
+      # Containers still reach it as postgres:5432.
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: spot
+      POSTGRES_PASSWORD: spot
+      POSTGRES_DB: spot
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Only runs when the data volume is empty. Editing init.sql after the
+      # first boot does nothing until `docker compose down -v`.
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      # -U and -d matter: without them pg_isready checks the root role and
+      # reports ready while the init script is still running.
+      test: ["CMD-SHELL", "pg_isready -U spot -d spot"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   simulator:
     build: .
     depends_on:
@@ -89,3 +113,4 @@ services:
 
 volumes:
   kafka-data:
+  postgres-data:
