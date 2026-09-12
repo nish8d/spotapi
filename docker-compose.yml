@@ -47,5 +47,29 @@ services:
       retries: 12
       start_period: 20s
 
+  # Runs once on `docker compose up`, creates the topic, exits 0.
+  # A stopped kafka-init container is the expected steady state.
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    # The script must be ONE argument to `bash -c`. A string `command:` is
+    # word-split by Compose, which would hand bash only the first word.
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+          --create --if-not-exists \
+          --topic plays \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config retention.ms=604800000 \
+          --config compression.type=snappy
+        echo "--- plays ---"
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays
+
 volumes:
   kafka-data:

@@ -168,19 +168,30 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
       kafka:
         condition: service_healthy
     restart: "no"
+    # The script must be ONE argument to `bash -c`. A string `command:` is
+    # word-split by Compose, which would hand bash only the first word.
     entrypoint: ["/bin/bash", "-c"]
-    command: |
-      set -e
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
-        --create --if-not-exists \
-        --topic plays \
-        --partitions 3 \
-        --replication-factor 1 \
-        --config retention.ms=604800000 \
-        --config compression.type=snappy
-      echo "--- plays ---"
-      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays
+    command:
+      - |
+        set -e
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+          --create --if-not-exists \
+          --topic plays \
+          --partitions 3 \
+          --replication-factor 1 \
+          --config retention.ms=604800000 \
+          --config compression.type=snappy
+        echo "--- plays ---"
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --describe --topic plays
 ```
+
+> **Gotcha, found the hard way during execution.** Writing this as a plain
+> `command: |` block makes the container start, print its whole environment, and
+> exit 0 without creating anything. Compose word-splits a string `command`, so
+> `bash -c` receives only `set` — which with no arguments prints every shell
+> variable. The list form above keeps the script as a single argument. Silent
+> success is the dangerous part: check for `Created topic plays.` in the output,
+> not just the exit code.
 
 - [ ] **Step 2: Run it and read its output**
 
