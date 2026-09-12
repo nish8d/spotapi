@@ -74,8 +74,12 @@ services:
       # --- Listeners ---
       # INTERNAL  : other containers, advertised as kafka:9092
       # HOST      : processes on the laptop, advertised as localhost:29092
-      # CONTROLLER: KRaft quorum traffic, never advertised to clients
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      # CONTROLLER: KRaft quorum traffic. Bound to the routable hostname, not
+      #   0.0.0.0: a controller listener is advertised to the quorum but is not
+      #   allowed in advertised.listeners, so Kafka advertises its `listeners`
+      #   entry verbatim and rejects the nonroutable meta-address. Must match
+      #   the host in KAFKA_CONTROLLER_QUORUM_VOTERS.
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,HOST://0.0.0.0:29092,CONTROLLER://kafka:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
@@ -100,6 +104,15 @@ services:
 volumes:
   kafka-data:
 ```
+
+> **Gotcha, found the hard way during execution.** Binding the controller as
+> `CONTROLLER://0.0.0.0:9093` makes the container exit 1 before the broker ever
+> starts, with `advertised.listeners cannot use the nonroutable meta-address
+> 0.0.0.0` — confusing, because `advertised.listeners` contains no such address.
+> The broker listeners may bind `0.0.0.0` precisely because they have explicit
+> advertised values; the controller listener has none (Kafka forbids controller
+> listeners in `advertised.listeners`) so Kafka advertises its `listeners` entry
+> as-is, and refuses a meta-address.
 
 - [ ] **Step 2: Start it and wait for the healthcheck to go green**
 
