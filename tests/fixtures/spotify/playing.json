@@ -1,0 +1,17 @@
+{
+  "timestamp": 1789012345678,
+  "progress_ms": 9000,
+  "is_playing": true,
+  "currently_playing_type": "track",
+  "item": {
+    "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+    "name": "Mr. Brightside",
+    "duration_ms": 222075,
+    "type": "track",
+    "uri": "spotify:track:3n3Ppam7vgaVa1iaRUc9Lp",
+    "artists": [
+      {"id": "0C0XlULifJtAgn6ZNCW2eu", "name": "The Killers", "type": "artist"}
+    ],
+    "album": {"id": "4piJq7R3gjUOxnYs6lDCTg", "name": "Hot Fuss", "type": "album"}
+  }
+}

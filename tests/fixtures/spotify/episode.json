@@ -1,0 +1,13 @@
+{
+  "timestamp": 1789012375678,
+  "progress_ms": 60000,
+  "is_playing": true,
+  "currently_playing_type": "episode",
+  "item": {
+    "id": "512ojhOuo1ktJprKbVcKyQ",
+    "name": "Some Episode",
+    "duration_ms": 2400000,
+    "type": "episode",
+    "uri": "spotify:episode:512ojhOuo1ktJprKbVcKyQ"
+  }
+}

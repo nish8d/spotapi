@@ -1,0 +1,15 @@
+{
+  "timestamp": 1789012365678,
+  "progress_ms": 15000,
+  "is_playing": true,
+  "currently_playing_type": "track",
+  "item": {
+    "id": null,
+    "name": "demo-take-3",
+    "duration_ms": 180000,
+    "type": "track",
+    "uri": "spotify:local:::demo-take-3:180",
+    "artists": [{"id": null, "name": "", "type": "artist"}],
+    "album": {"id": null, "name": "", "type": "album"}
+  }
+}
