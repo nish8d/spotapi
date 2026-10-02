@@ -122,28 +122,37 @@ def fixture_events(base: datetime | None = None) -> list[PlayEvent]:
 
 # The fixture's twelve plays end at +2m38s. A window is written only when the
 # watermark -- the latest started_at seen, minus 30s -- passes its end, so with
-# nothing later the third minute would stay open forever. This event is ten
-# minutes on, far past every fixture window. Its own window never closes, so it
-# never appears in an agg_ table.
+# nothing later the third minute would stay open forever.
+#
+# One flush event per fixture listener, not one in total. The watermark is the
+# MINIMUM over partitions, and each listener's events share a partition. A
+# single flush moves only its own partition; the others stay behind, and since
+# the whole fixture is read in one burst, every partition then falls silent at
+# once. All of them go idle together, and an all-idle source freezes the
+# watermark where it was. Seen in M4: one flush, watermark stuck at 00:01:36.
+#
+# Ten minutes on is far past every fixture window, and the flush windows
+# themselves never close, so no flush event reaches an agg_ table.
 FIXTURE_FLUSH_OFFSET_SECONDS = 600
-FIXTURE_FLUSH_LISTENER = "fixture-flush"
 
 
-def fixture_flush_event(base: datetime | None = None) -> PlayEvent:
-    """One later event whose only job is to move event time forward."""
+def fixture_flush_events(base: datetime | None = None) -> list[PlayEvent]:
+    """One later event per fixture listener, to move event time forward on
+    every partition that holds fixture data."""
     anchor = base or FIXTURE_BASE
     track = load_catalog()[0]
     started_at = anchor + timedelta(seconds=FIXTURE_FLUSH_OFFSET_SECONDS)
-    return _event(FIXTURE_FLUSH_LISTENER, track, started_at,
-                  started_at + timedelta(seconds=3))
+    listeners = sorted({listener for _, listener in FIXTURE_SCHEDULE})
+    return [_event(listener, track, started_at, started_at + timedelta(seconds=3))
+            for listener in listeners]
 
 
 def fixture_stream(base: datetime | None = None) -> list[PlayEvent]:
     """Exactly what fixture mode sends, in order: the twelve plays, the first
     play again -- the duplicate a poller restart mid-track produces -- and the
-    flush event."""
+    flush events."""
     events = fixture_events(base)
-    return [*events, events[0], fixture_flush_event(base)]
+    return [*events, events[0], *fixture_flush_events(base)]
 
 
 def run_fixture(sink: KafkaSink) -> None:
