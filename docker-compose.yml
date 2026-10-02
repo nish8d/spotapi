@@ -1,5 +1,32 @@
 name: spot
 
+# Shared by every Flink service: one image, one configuration. The image's
+# entrypoint writes FLINK_PROPERTIES into Flink's config before running any
+# command, including the submit script's.
+x-flink: &flink
+  build: ./flink
+  image: spot-flink:1.20
+  environment:
+    FLINK_PROPERTIES: |
+      jobmanager.rpc.address: jobmanager
+      rest.address: jobmanager
+      rest.port: 8081
+      jobmanager.memory.process.size: 1024m
+      taskmanager.memory.process.size: 1536m
+      # Four slots: M4's two jobs, one ad-hoc SQL client query, and room for
+      # M5 and M6. Parallelism 1 means one slot per job.
+      taskmanager.numberOfTaskSlots: 4
+      parallelism.default: 1
+      # A checkpoint is a consistent snapshot of every operator's state and
+      # every source's offsets. On a failure the job rewinds to the last one.
+      execution.checkpointing.interval: 30s
+      state.checkpoints.dir: file:///opt/flink/checkpoints
+      # Ten retries, ten seconds apart, then FAILED in the UI. Finite on
+      # purpose: a poison message should end up visible, not retried forever.
+      restart-strategy.type: fixed-delay
+      restart-strategy.fixed-delay.attempts: 10
+      restart-strategy.fixed-delay.delay: 10s
+
 services:
   kafka:
     image: apache/kafka:3.9.0
@@ -142,6 +169,35 @@ services:
       - ./.spotify_token.json:/app/.spotify_token.json
     restart: unless-stopped
 
+  jobmanager:
+    <<: *flink
+    command: jobmanager
+    ports:
+      # The Flink Web UI: jobs, their graphs, per-operator watermarks,
+      # checkpoints, backpressure.
+      - "8081:8081"
+    volumes:
+      # The JobManager writes each checkpoint's metadata and the TaskManager
+      # writes its state, so both must see the same directory.
+      - flink-checkpoints:/opt/flink/checkpoints
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8081/overview > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    restart: unless-stopped
+
+  taskmanager:
+    <<: *flink
+    command: taskmanager
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    restart: unless-stopped
+
   consumer:
     build: .
     # The image's CMD runs the simulator; this service runs the consumer.
@@ -186,3 +242,4 @@ services:
 volumes:
   kafka-data:
   postgres-data:
+  flink-checkpoints:

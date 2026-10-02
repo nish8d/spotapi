@@ -203,14 +203,28 @@ Expected: `compose config valid`, both services `Up`, the JobManager `(healthy)`
 
 ```bash
 docker compose exec -T jobmanager ls /opt/flink/lib | grep -E 'kafka|jdbc|postgres'
-docker compose exec -T jobmanager grep -E 'numberOfTaskSlots|checkpointing.interval|restart-strategy.type' /opt/flink/conf/config.yaml
+curl -s http://localhost:8081/jobmanager/config | python3 -c "$(cat <<'EOF'
+import json, sys
+cfg = {e["key"]: e["value"] for e in json.load(sys.stdin)}
+for k in ["execution.checkpointing.interval", "state.checkpoints.dir",
+          "restart-strategy.type", "restart-strategy.fixed-delay.attempts",
+          "taskmanager.numberOfTaskSlots", "rest.address"]:
+    print(f"{k:42} {cfg.get(k, 'MISSING')}")
+EOF
+)"
+until curl -s http://localhost:8081/overview | grep -q '"taskmanagers":1'; do sleep 2; done
 curl -s http://localhost:8081/overview | python3 -m json.tool
 ```
 
-Expected: the three jar file names from `jars.txt`; the three config lines;
-and `"taskmanagers": 1`, `"slots-total": 4`, `"slots-available": 4`,
+Expected: the three jar file names from `jars.txt`; six config values, none
+`MISSING`; and `"taskmanagers": 1`, `"slots-total": 4`, `"slots-available": 4`,
 `"jobs-running": 0`. Open <http://localhost:8081> — an empty cluster with one
 TaskManager.
+
+Ask the REST API rather than grepping `conf/config.yaml`: Flink 1.20 writes
+that file as nested YAML, so `execution.checkpointing.interval` appears as
+`interval:` three levels deep and a flat grep misses it. The REST endpoint
+reports the effective, flattened configuration.
 
 - [ ] **Step 5: Commit**
 
