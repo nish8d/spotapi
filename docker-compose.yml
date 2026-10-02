@@ -1,11 +1,16 @@
 name: spot
 
-# Shared by every Flink service: one image, one configuration. The image's
+# Shared by every Flink service: one build, one configuration. The image's
 # entrypoint writes FLINK_PROPERTIES into Flink's config before running any
 # command, including the submit script's.
+#
+# No `image:` name, on purpose. Compose then tags the build per project
+# (spot-jobmanager, spot-it-jobmanager, ...). A fixed tag is shared by every
+# project on the machine: each integration run's --build moved it, and the
+# next dev `up` recreated the JobManager -- and a session cluster without HA
+# forgets its jobs when that happens.
 x-flink: &flink
   build: ./flink
-  image: spot-flink:1.20
   environment:
     FLINK_PROPERTIES: |
       jobmanager.rpc.address: jobmanager
