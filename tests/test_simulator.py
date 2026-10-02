@@ -32,6 +32,9 @@ from simulator.main import (
     FIXTURE_BASE,
     build_listeners,
     fixture_events,
+    fixture_flush_events,
+    fixture_stream,
+    run_fixture,
     settings_from_env,
 )
 
@@ -118,3 +121,55 @@ def test_fixture_uses_two_listeners():
 def test_fixture_events_round_trip_through_the_schema():
     for event in fixture_events():
         assert PlayEvent.from_json(event.to_json()) == event
+
+
+# --- the stream fixture mode actually sends --------------------------------
+
+
+def test_fixture_stream_is_the_twelve_plays_a_replay_and_the_flush():
+    stream = fixture_stream()
+    assert len(stream) == 15
+    assert stream[:12] == fixture_events()
+    assert stream[13:] == fixture_flush_events()
+
+
+def test_fixture_stream_replays_the_first_play_as_a_restart_would():
+    # A poller restarted mid-track re-emits the play in flight. Same event_id,
+    # so raw_plays keeps one row, and the windowed count must too.
+    stream = fixture_stream()
+    assert stream[12] == stream[0]
+    assert stream[12].event_id == stream[0].event_id
+
+
+def test_every_fixture_listener_gets_a_flush_event():
+    # The watermark is the minimum over partitions, and a listener's events all
+    # land on one partition. Each partition holding fixture data must see event
+    # time move on by itself: if all of them fall silent together, they go
+    # idle together, and an all-idle source freezes the watermark where it was.
+    flushes = fixture_flush_events()
+    assert sorted(e.listener_id for e in flushes) == sorted(
+        {e.listener_id for e in fixture_events()})
+
+
+def test_fixture_flush_events_close_every_fixture_window():
+    # The last fixture window ends at +3min; the watermark trails the latest
+    # started_at by 30s. Every flush must be later than both together.
+    for flush in fixture_flush_events():
+        assert flush.started_at >= FIXTURE_BASE + timedelta(minutes=3, seconds=30)
+        assert flush.is_synthetic
+
+
+def test_run_fixture_sends_the_stream_in_order():
+    class RecordingSink:
+        def __init__(self):
+            self.sent = []
+
+        def send(self, event):
+            self.sent.append(event)
+
+        def flush(self, timeout=10.0):
+            return 0
+
+    sink = RecordingSink()
+    run_fixture(sink)
+    assert sink.sent == fixture_stream()

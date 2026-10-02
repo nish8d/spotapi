@@ -1,2 +1,4 @@
 -r requirements.txt
 pytest==8.3.4
+# The integration test reads Postgres directly. No service image needs it now.
+psycopg[binary]==3.2.9

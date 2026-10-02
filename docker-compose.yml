@@ -1,5 +1,37 @@
 name: spot
 
+# Shared by every Flink service: one build, one configuration. The image's
+# entrypoint writes FLINK_PROPERTIES into Flink's config before running any
+# command, including the submit script's.
+#
+# No `image:` name, on purpose. Compose then tags the build per project
+# (spot-jobmanager, spot-it-jobmanager, ...). A fixed tag is shared by every
+# project on the machine: each integration run's --build moved it, and the
+# next dev `up` recreated the JobManager -- and a session cluster without HA
+# forgets its jobs when that happens.
+x-flink: &flink
+  build: ./flink
+  environment:
+    FLINK_PROPERTIES: |
+      jobmanager.rpc.address: jobmanager
+      rest.address: jobmanager
+      rest.port: 8081
+      jobmanager.memory.process.size: 1024m
+      taskmanager.memory.process.size: 1536m
+      # Four slots: M4's two jobs, one ad-hoc SQL client query, and room for
+      # M5 and M6. Parallelism 1 means one slot per job.
+      taskmanager.numberOfTaskSlots: 4
+      parallelism.default: 1
+      # A checkpoint is a consistent snapshot of every operator's state and
+      # every source's offsets. On a failure the job rewinds to the last one.
+      execution.checkpointing.interval: 30s
+      state.checkpoints.dir: file:///opt/flink/checkpoints
+      # Ten retries, ten seconds apart, then FAILED in the UI. Finite on
+      # purpose: a poison message should end up visible, not retried forever.
+      restart-strategy.type: fixed-delay
+      restart-strategy.fixed-delay.attempts: 10
+      restart-strategy.fixed-delay.delay: 10s
+
 services:
   kafka:
     image: apache/kafka:3.9.0
@@ -142,25 +174,54 @@ services:
       - ./.spotify_token.json:/app/.spotify_token.json
     restart: unless-stopped
 
-  consumer:
-    build: .
-    # The image's CMD runs the simulator; this service runs the consumer.
-    command: ["python", "-m", "consumer.main"]
+  jobmanager:
+    <<: *flink
+    command: jobmanager
+    ports:
+      # The Flink Web UI: jobs, their graphs, per-operator watermarks,
+      # checkpoints, backpressure.
+      - "8081:8081"
+    volumes:
+      # The JobManager writes each checkpoint's metadata and the TaskManager
+      # writes its state, so both must see the same directory.
+      - flink-checkpoints:/opt/flink/checkpoints
+      # For ad-hoc queries with the SQL client. Read-only: jobs come from git.
+      - ./flink/sql:/opt/flink/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8081/overview > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    restart: unless-stopped
+
+  taskmanager:
+    <<: *flink
+    command: taskmanager
     depends_on:
-      kafka:
+      jobmanager:
         condition: service_healthy
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    restart: unless-stopped
+
+  # Runs once on `docker compose up`, submits any job that is not already
+  # running, exits 0. Like kafka-init, a stopped container is its steady state.
+  flink-submit:
+    <<: *flink
+    command: ["bash", "/opt/flink/bin/spot-submit.sh"]
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+      taskmanager:
+        condition: service_started
       kafka-init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP: kafka:9092
-      KAFKA_TOPIC: plays
-      CONSUMER_GROUP: raw-plays-writer
-      POSTGRES_DSN: postgresql://spot:spot@postgres:5432/spot
-    # No container_name: `docker compose up --scale consumer=2` needs to be
-    # free to name the replicas, and that scale-up is one of M2's exercises.
-    restart: unless-stopped
+    volumes:
+      - ./flink/sql:/opt/flink/sql:ro
+    restart: "no"
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -186,3 +247,4 @@ services:
 volumes:
   kafka-data:
   postgres-data:
+  flink-checkpoints:

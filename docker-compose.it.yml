@@ -1,0 +1,17 @@
+# Integration-test overlay. Used only as
+#   docker compose -p spot-it -f docker-compose.yml -f docker-compose.it.yml ...
+# The project name gives the test its own network and volumes, so it starts
+# from an empty topic and `down -v` destroys only its own data. This file only
+# moves host ports out of the dev stack's way: two projects cannot both bind
+# 8081 or 55432.
+services:
+  kafka:
+    ports: !reset []
+  postgres:
+    ports: !override
+      - "55433:5432"
+  jobmanager:
+    ports: !override
+      - "18081:8081"
+  grafana:
+    ports: !reset []
