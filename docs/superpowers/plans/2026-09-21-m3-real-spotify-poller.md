@@ -82,7 +82,7 @@ it is only if it has no clock, no socket and no broker in it.
 
 This is the one task with a manual step in it. Everything after it is code.
 
-- [ ] **Step 1: Register the Spotify app (manual, in a browser)**
+- [x] **Step 1: Register the Spotify app (manual, in a browser)**
 
 1. Open <https://developer.spotify.com/dashboard> and log in with the account whose listening should be tracked.
 2. **Create app.** Name and description are free text — `spot` and `local streaming pipeline` will do.
@@ -90,7 +90,7 @@ This is the one task with a manual step in it. Everything after it is code.
 4. Under **Which API/SDKs are you planning to use**, tick **Web API**.
 5. Save, then open **Settings** and copy the **Client ID**, and the **Client secret** from behind *View client secret*.
 
-- [ ] **Step 2: Write `.env.example`, committed**
+- [x] **Step 2: Write `.env.example`, committed**
 
 ```bash
 cat > .env.example <<'EOF'
@@ -113,7 +113,7 @@ SIM_SPEED=1.0
 EOF
 ```
 
-- [ ] **Step 3: Create `.env` from it and fill in the two secrets**
+- [x] **Step 3: Create `.env` from it and fill in the two secrets**
 
 ```bash
 cp .env.example .env
@@ -128,7 +128,7 @@ git check-ignore -v .env
 
 Expected: `1`, `1`, and a line naming `.gitignore` as the reason `.env` is ignored. If `git check-ignore` prints nothing, stop — the secret is about to be committable.
 
-- [ ] **Step 4: Add the HTTP dependency and the package**
+- [x] **Step 4: Add the HTTP dependency and the package**
 
 ```bash
 printf 'requests==2.32.3\n' >> requirements.txt
@@ -140,7 +140,7 @@ touch poller/__init__.py
 
 Expected: `2.32.3`.
 
-- [ ] **Step 5: Commit (no secrets in the diff)**
+- [x] **Step 5: Commit (no secrets in the diff)**
 
 ```bash
 git add .env.example requirements.txt poller/__init__.py
@@ -165,7 +165,7 @@ git commit -m "M3: Spotify app credentials scaffolding and the requests dependen
   - `NowPlaying(track_id: str, track_name: str, artist_name: str, album_name: str, duration_ms: int, progress_ms: int, is_playing: bool, observed_at: datetime)` — frozen dataclass.
   - `snapshot(payload: dict | None, observed_at: datetime) -> NowPlaying | None`
 
-- [ ] **Step 1: Record the response fixtures**
+- [x] **Step 1: Record the response fixtures**
 
 These are the documented shape of `GET /v1/me/player/currently-playing`, trimmed to the fields that matter. No test contacts the live API, so these files *are* the API as far as the suite is concerned.
 
@@ -240,7 +240,7 @@ cat > tests/fixtures/spotify/episode.json <<'EOF'
 EOF
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```bash
 cat > tests/test_transition.py <<'EOF'
@@ -305,12 +305,12 @@ def test_snapshot_survives_a_paused_track_with_no_progress():
 EOF
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_transition.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'poller.transition'`.
 
-- [ ] **Step 4: Write the module**
+- [x] **Step 4: Write the module**
 
 ```bash
 cat > poller/transition.py <<'EOF'
@@ -388,12 +388,12 @@ def snapshot(payload: Optional[dict[str, Any]],
 EOF
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_transition.py -q`
 Expected: 7 passed (the parametrized case counts as three).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add poller/transition.py tests/test_transition.py tests/fixtures/spotify/
@@ -433,7 +433,7 @@ The rows, from the spec, plus the two it does not list:
 | *Nothing → paused T* | none | *nothing (stays empty)* |
 | *T → T restarted from the top (repeat-one)* | *new play event for T* | *T* |
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_transition.py`:
 
@@ -618,12 +618,12 @@ def test_a_restart_can_straddle_a_bucket_boundary_and_duplicate():
 EOF
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_transition.py -q`
 Expected: collection error — `ImportError: cannot import name 'REPLAY_THRESHOLD_MS' from 'poller.transition'`. The Task 2 tests fail with it, because the import is at module level; that is expected and goes green again in Step 4.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Append to `poller/transition.py`:
 
@@ -732,17 +732,17 @@ head -20 poller/transition.py
 
 Expected: the import block now reads `from datetime import datetime, timedelta` and `from events.schema import PlayEvent`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_transition.py -q`
 Expected: 22 passed — the 7 from Task 2 and the 15 added here.
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: 74 passed (52 from M2, 22 in tests/test_transition.py).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add poller/transition.py tests/test_transition.py
@@ -767,7 +767,7 @@ git commit -m "M3: transition(), the pure state-endpoint-to-events decision"
   - `authorize_url(client_id, state) -> str`, `capture_code(expected_state) -> str`, `REDIRECT_URI`
   - A `.spotify_token.json` on the host, holding a working refresh token.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```bash
 cat > tests/test_spotify_auth.py <<'EOF'
@@ -953,12 +953,12 @@ def test_the_authorize_url_asks_for_exactly_one_scope_on_the_loopback_redirect()
 EOF
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_spotify_auth.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'poller.spotify_auth'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 ```bash
 cat > poller/spotify_auth.py <<'EOF'
@@ -1239,12 +1239,12 @@ if __name__ == "__main__":
 EOF
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_spotify_auth.py -q`
 Expected: 15 passed.
 
-- [ ] **Step 5: Authorise for real (manual, one time)**
+- [x] **Step 5: Authorise for real (manual, one time)**
 
 ```bash
 set -a; . ./.env; set +a
@@ -1272,7 +1272,7 @@ registered redirect URI does not match `http://127.0.0.1:8888/callback`
 character for character — check for `localhost`, a missing `/callback`, or a
 trailing slash.
 
-- [ ] **Step 6: Commit (the token file must not appear)**
+- [x] **Step 6: Commit (the token file must not appear)**
 
 ```bash
 git add poller/spotify_auth.py tests/test_spotify_auth.py
@@ -1301,7 +1301,7 @@ does not raise.** Every failure mode collapses to `None`, which the loop
 reads as "no snapshot", which `transition()` answers by retaining state. That
 equivalence is what stops a network blip mid-song from double-counting.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```bash
 cat > tests/test_spotify_client.py <<'EOF'
@@ -1470,12 +1470,12 @@ def test_the_backoff_doubles_while_failing_and_resets_on_success():
 EOF
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_spotify_client.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'poller.spotify_client'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 ```bash
 cat > poller/spotify_client.py <<'EOF'
@@ -1581,12 +1581,12 @@ class SpotifyClient:
 EOF
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_spotify_client.py -q`
 Expected: 11 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add poller/spotify_client.py tests/test_spotify_client.py
@@ -1610,7 +1610,7 @@ git commit -m "M3: Spotify HTTP client — 204, 401, 429 and backoff, never rais
   - `run(client, sink, settings, should_continue=..., sleep=time.sleep, clock=None) -> None`
   - `main() -> None`, the module entry point
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```bash
 cat > tests/test_poller_main.py <<'EOF'
@@ -1711,12 +1711,12 @@ def test_the_loop_polls_until_it_is_told_to_stop():
 EOF
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_poller_main.py -q`
 Expected: collection error — `ModuleNotFoundError: No module named 'poller.main'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 ```bash
 cat > poller/main.py <<'EOF'
@@ -1855,17 +1855,17 @@ if __name__ == "__main__":
 EOF
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_poller_main.py -q`
 Expected: 5 passed.
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: 105 passed (52 from M2, 22 transition, 15 auth, 11 client, 5 main).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add poller/main.py tests/test_poller_main.py
@@ -1883,7 +1883,7 @@ git commit -m "M3: the polling loop, wiring auth, client, transition and the sin
 - Consumes: `poller/main.py` from Task 6, `.env` from Task 1, `.spotify_token.json` from Task 4.
 - Produces: a running `poller` service producing real events onto `plays`, which the existing M2 consumer writes into `raw_plays` with no change of its own.
 
-- [ ] **Step 1: Add the package to the image**
+- [x] **Step 1: Add the package to the image**
 
 ```bash
 python3 - <<'EOF'
@@ -1901,7 +1901,7 @@ grep -n COPY Dockerfile
 
 Expected: a `COPY poller/ poller/` line after the simulator one.
 
-- [ ] **Step 2: Add the service**
+- [x] **Step 2: Add the service**
 
 Insert this after the `simulator` service and before `consumer` in `docker-compose.yml`:
 
@@ -1938,7 +1938,7 @@ Insert this after the `simulator` service and before `consumer` in `docker-compo
     restart: unless-stopped
 ```
 
-- [ ] **Step 3: Check the file the bind mount needs is a file**
+- [x] **Step 3: Check the file the bind mount needs is a file**
 
 ```bash
 test -f .spotify_token.json && echo "ok: a file" || echo "STOP: run Task 4 Step 5 first"
@@ -1948,7 +1948,7 @@ docker compose config --quiet && echo "compose config valid"
 Expected: `ok: a file` and `compose config valid`. If `docker compose config`
 complains about `SPOTIFY_CLIENT_ID`, `.env` is missing or empty — Task 1.
 
-- [ ] **Step 4: Build and start**
+- [x] **Step 4: Build and start**
 
 ```bash
 docker compose up -d --build poller
@@ -1961,7 +1961,7 @@ Expected: `poller` is `Up`. If it is restarting, read the reason:
 docker compose logs poller | tail -20
 ```
 
-- [ ] **Step 5: Watch it poll while nothing is playing**
+- [x] **Step 5: Watch it poll while nothing is playing**
 
 ```bash
 docker compose logs -f poller
@@ -1971,7 +1971,7 @@ Expected: a startup line naming the poll interval and listener, then silence.
 Silence is correct — a `204` emits nothing and logs nothing. Leave this
 running for the next step.
 
-- [ ] **Step 6: Play a song and watch it appear**
+- [x] **Step 6: Play a song and watch it appear**
 
 Start any track on Spotify, on any device signed into the same account. Within
 10 seconds the log should show a single line:
@@ -1992,7 +1992,7 @@ Expected: one row, with `observed_at` a few seconds after `started_at` —
 that gap is the poll catching the track already in progress, and it is the
 quantity the skew panel charts.
 
-- [ ] **Step 7: Let it play through and confirm it stays one row**
+- [x] **Step 7: Let it play through and confirm it stays one row**
 
 Leave the track playing for a minute, then:
 
@@ -2006,7 +2006,7 @@ Expected: `rows` unchanged from Step 6. Roughly six more polls have seen the
 same track and emitted nothing, because `transition()` recognised it as the
 play already in flight.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml
@@ -2028,7 +2028,7 @@ The M2 plan flagged this: one real listener next to twenty synthetic ones,
 all with equal prominence, makes "did my song arrive?" needlessly hard to
 read. Now that real data exists, it is worth a variable.
 
-- [ ] **Step 1: Edit the dashboard JSON**
+- [x] **Step 1: Edit the dashboard JSON**
 
 ```bash
 python3 - <<'EOF'
@@ -2115,7 +2115,7 @@ EOF
 
 Expected: four panels, the new one at `y: 0`, the others at 5, 14 and 14.
 
-- [ ] **Step 2: Reload and check every panel still returns data**
+- [x] **Step 2: Reload and check every panel still returns data**
 
 Grafana's file provider re-reads the dashboard within about ten seconds, so
 no restart is needed.
@@ -2136,7 +2136,7 @@ If a panel goes blank on *All*, the `sqlstring` interpolation is the thing
 to suspect: check the rendered query under the panel's *Query inspector*,
 which should show `is_synthetic::text IN ('false','true')`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add grafana/dashboards/spot.json
@@ -2149,7 +2149,7 @@ git commit -m "M3: dashboard tells the real account apart from the simulator"
 
 **Files:** Modify: this plan file, `CLAUDE.md`
 
-- [ ] **Step 1: The restart exercise**
+- [x] **Step 1: The restart exercise**
 
 This is the one that proves invariant 2 end to end, and it is worth doing
 deliberately rather than trusting the unit test.
@@ -2190,12 +2190,12 @@ either side of it. Confirm by comparing `started_at` on the two rows — they
 will differ by under a second. Record which outcome you got in the results
 section below; both are informative.
 
-- [ ] **Step 2: Verify the full suite is green**
+- [x] **Step 2: Verify the full suite is green**
 
 Run: `.venv/bin/pytest -q`
 Expected: 105 passed.
 
-- [ ] **Step 3: Verify a cold start still reaches a working dashboard**
+- [x] **Step 3: Verify a cold start still reaches a working dashboard**
 
 ```bash
 docker compose down -v
@@ -2214,36 +2214,36 @@ track if the `false` group is missing.
 `down -v` destroys both data volumes but not `.spotify_token.json`, which
 lives on the host. The poller should come back without any re-authorization.
 
-- [ ] **Step 4: Check the milestone acceptance criteria**
+- [x] **Step 4: Check the milestone acceptance criteria**
 
 From the spec's M3 section:
 
-- [ ] Play a song on Spotify; within 10 seconds it appears in `raw_plays` exactly once (Task 7, Steps 6-7).
-- [ ] Let it play through and confirm no duplicate rows (Task 7, Step 7).
-- [ ] `transition.py` was built test-first, one test per row of the state table (Task 3).
-- [ ] No test contacts the live Spotify API (Task 2's fixtures are the API).
+- [x] Play a song on Spotify; within 10 seconds it appears in `raw_plays` exactly once (Task 7, Steps 6-7).
+- [x] Let it play through and confirm no duplicate rows (Task 7, Step 7).
+- [x] `transition.py` was built test-first, one test per row of the state table (Task 3).
+- [x] No test contacts the live Spotify API (Task 2's fixtures are the API).
 
 Plus the project's own standards:
 
-- [ ] `.venv/bin/pytest -q` is green.
-- [ ] `docker compose up -d --build` from cold reaches a filled dashboard.
-- [ ] No Flink, no `agg_` writes — those tables exist and are still empty.
-- [ ] `.env` and `.spotify_token.json` are untracked: `git status --short` lists neither.
+- [x] `.venv/bin/pytest -q` is green.
+- [x] `docker compose up -d --build` from cold reaches a filled dashboard.
+- [x] No Flink, no `agg_` writes — those tables exist and are still empty.
+- [x] `.env` and `.spotify_token.json` are untracked: `git status --short` lists neither.
 
-- [ ] **Step 5: Update CLAUDE.md's "Current state" section**
+- [x] **Step 5: Update CLAUDE.md's "Current state" section**
 
 It says M0-M2 are complete and M3 is next. Rewrite it for the state after this
 milestone: `poller/` exists, the only thing outstanding is `flink/sql/`, the
 new test count, and the one manual step a fresh clone now needs
 (`cp .env.example .env`, fill it in, run `python -m poller.spotify_auth`).
 
-- [ ] **Step 6: Record what actually happened**
+- [x] **Step 6: Record what actually happened**
 
 Replace the expected numbers in the "Results" section below with the real
 ones, the way M1 and M2 did. Note in particular whether the restart in Step 1
 produced a duplicate row.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-09-21-m3-real-spotify-poller.md CLAUDE.md
@@ -2254,7 +2254,75 @@ git commit -m "M3: mark plan complete, record the restart-idempotence result"
 
 ## Results
 
-*Filled in during Task 9, Step 6.*
+Actual numbers from the run on 2026-10-02, replacing the expectations above.
+
+### First real plays (Task 7)
+
+A track was already playing when the poller started, so the very first poll
+emitted:
+
+```
+03:38:27,868 INFO poller polling every 10s as listener 'nishad' into topic 'plays'
+03:38:28,123 INFO poller PLAY  Many Men [ChopNotSlop Remix] — 21 Savage  (started 03:37:46.573, event_id 16939cbe4569)
+03:39:49,829 INFO poller PLAY  RUSSIAN ROULETTE(I ADORE U) — millkzy    (started 03:39:43.573, event_id 30f03a7e174e)
+```
+
+| track | `observed_at − started_at` |
+|---|---|
+| Many Men | 42s — the poller came up 42s into the track; `started_at` was still recovered from `progress_ms` |
+| RUSSIAN ROULETTE | 6s — started under a running poller; bounded by the 10s interval |
+
+After ~18 polls over three minutes: **2 rows, 2 distinct ids, 2 `PLAY` log
+lines.** Every other poll was recognised as the play already in flight.
+
+Incidental: `docker compose up -d --build poller` starts only the poller and
+its `depends_on` (Kafka), so Postgres was down and the first query failed. The
+events waited in the topic and the consumer wrote them as soon as Postgres
+came up — a free demonstration that Kafka decouples producer from consumer.
+Also worth knowing: Kafka and Postgres have no `restart:` policy, so after a
+reboot the consumer, simulator and Grafana come back on their own and the
+two stateful services do not.
+
+### Dashboard (Task 8)
+
+Each panel's SQL run against Postgres with the variable substituted:
+
+| panel | All | real | synthetic |
+|---|---|---|---|
+| Plays per minute — listeners | 21 | 1 | 20 |
+| Now playing — rows | 21 | 1 | 20 |
+| Event-time skew — minute buckets | 10 | 2 | 10 |
+| Now playing — real account (unfiltered) | 2 | 2 | 2 |
+
+### Restart idempotence (Task 9, Step 1) — no duplicate
+
+Restarted mid-song, 2m52s into RUSSIAN ROULETTE:
+
+```
+03:42:41,440 INFO poller signal 15 received, stopping after this poll
+03:42:43,430 INFO poller stopped
+03:42:43,726 INFO poller polling every 10s as listener 'nishad' into topic 'plays'
+03:42:43,984 INFO poller PLAY  RUSSIAN ROULETTE(I ADORE U) — millkzy  (started 03:39:43.546907, event_id 30f03a7e174e)
+```
+
+The re-emit derived `started_at` as `.546907` against the original `.573475`
+— 27ms apart, same 5s bucket, **same `event_id`**. Row count stayed at **2**;
+the existing row's `observed_at` moved to `03:42:43`, which is the upsert
+landing on it rather than a new row appearing. The bucket-boundary case did
+not occur.
+
+### Suite and cold start
+
+- `.venv/bin/pytest -q`: **105 passed** in 0.21s.
+- `down -v` then `up -d --build`: all services up, `kafka-init` exited 0, 20
+  synthetic rows within seconds, Grafana `200`. The poller started on the
+  host-side `.spotify_token.json` with no re-authorisation. No real row
+  appeared because nothing was playing — the `204`s were silent, as designed.
+- All three `agg_` tables: 0 rows.
+- `git status --short` lists neither `.env` nor `.spotify_token.json`.
+
+One plan nit: Task 4 Step 5 says `expires_at` is "a timestamp"; it is stored
+as an ISO-8601 string, not epoch seconds.
 
 ---
 

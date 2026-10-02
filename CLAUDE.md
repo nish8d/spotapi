@@ -4,19 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**M0, M1 and M2 complete. Next is M3, the real Spotify poller.**
+**M0-M3 complete. Next is M4, the Flink tumbling window.**
 
 `docker compose up -d --build` from cold brings up Kafka, Postgres, the
-simulator, the throwaway consumer and Grafana, and fills a live dashboard at
-`http://localhost:3000/d/spot-live` (no login). `.venv/bin/pytest -q` runs 52
-unit tests against fakes — no test contacts a broker, a database, or Spotify.
+simulator, the real Spotify poller, the throwaway consumer and Grafana, and
+fills a live dashboard at `http://localhost:3000/d/spot-live` (no login). A
+*Source* dropdown splits real plays from synthetic ones, and a panel at the
+top lists the real account's last ten plays. `.venv/bin/pytest -q` runs 105
+unit tests against fakes and recorded responses — no test contacts a broker,
+a database, or Spotify.
 
 What exists: `events/schema.py`, `producer/kafka_sink.py`, `simulator/`,
-`consumer/`, `postgres/init.sql`, `grafana/`. What does not: `poller/` (M3)
-and `flink/sql/` (M4-M6); `flink/jars.txt` holds the verified coordinates.
-The three `agg_` tables exist and are empty until Flink fills them.
+`poller/`, `consumer/`, `postgres/init.sql`, `grafana/`. What does not:
+`flink/sql/` (M4-M6); `flink/jars.txt` holds the verified coordinates. The
+three `agg_` tables exist and are empty until Flink fills them.
 
-Two things to know before working here:
+**A fresh clone needs one manual step before `up`**, or Compose refuses to
+start: `cp .env.example .env`, fill in the Spotify client id and secret, then
+`set -a; . ./.env; set +a; .venv/bin/python -m poller.spotify_auth` on the
+host to write `.spotify_token.json`. That file must exist before the first
+`up` — if it does not, Docker creates a directory in its place for the bind
+mount. After that the poller refreshes the token itself, indefinitely.
+
+Things to know before working here:
 
 - **Host port 5432 is taken by an unrelated local Postgres**, so Compose maps
   Postgres to `55432:5432`. Containers still use `postgres:5432`.
