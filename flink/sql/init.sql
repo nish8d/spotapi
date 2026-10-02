@@ -70,3 +70,20 @@ CREATE TABLE raw_plays (
   'username' = 'spot',
   'password' = 'spot'
 );
+
+-- window_start and window_end are TIMESTAMP(3), with no zone: that is what a
+-- window over a TIMESTAMP_LTZ column produces, in the session zone pinned to
+-- UTC above.
+CREATE TABLE agg_plays_per_minute (
+  window_start TIMESTAMP(3),
+  window_end   TIMESTAMP(3),
+  listener_id  STRING,
+  play_count   BIGINT,
+  PRIMARY KEY (window_start, listener_id) NOT ENFORCED
+) WITH (
+  'connector' = 'jdbc',
+  'url' = 'jdbc:postgresql://postgres:5432/spot',
+  'table-name' = 'agg_plays_per_minute',
+  'username' = 'spot',
+  'password' = 'spot'
+);

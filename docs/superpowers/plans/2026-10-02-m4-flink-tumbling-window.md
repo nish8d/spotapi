@@ -36,10 +36,11 @@
 6. **The session time zone is pinned to UTC** (`table.local-time-zone`). Tumbling windows over a `TIMESTAMP_LTZ` column are aligned in the session time zone and emit `window_start`/`window_end` as zone-less `TIMESTAMP(3)`. The image's JVM default is already UTC (verified), but a default is not a decision. The integration test asserts exact instants, so an offset would fail it.
 7. **Every JDBC sink timestamp column is `TIMESTAMP(3)`, and the passthrough casts `started_at`/`observed_at` into it.** The source keeps `TIMESTAMP_LTZ(3)`: the JSON format parses the schema's `2026-01-01T00:00:00Z`, with no fractional seconds, into it (verified: `2026-01-01 00:00:00.000`). The JDBC connector's planner accepts an LTZ sink column, and `EXPLAIN` passed, but its runtime converter does not. The first passthrough run failed with `UnsupportedOperationException: Unsupported type: TIMESTAMP_LTZ(3)`, which a plan-time check cannot see. The cast happens in the session zone, UTC. Postgres stores the zone-less value as `TIMESTAMPTZ` in the JVM's zone, also UTC. The integration test asserts the exact instant.
 8. **Every (re)submission starts from `earliest-offset`, with no savepoints.** A resubmitted job re-reads the whole topic (7-day retention, a few tens of thousands of events) and recomputes every window, and upsert makes the rewrite idempotent. Resuming from committed group offsets instead would be faster and *wrong*: a window that was half-full when the old job stopped would be rebuilt from only its second half, and the upsert would overwrite the correct count with the smaller one. Task 8 exercises the replay.
-9. **The fixture stream gains two messages after its twelve plays:** a re-emission of the first play (exactly what a poller restart mid-track produces), and a *flush* event ten minutes later. A window is written only once the watermark passes its end, and the watermark trails the latest `started_at` by 30 s, so without a later event the fixture's last minute would never close. The flush event's own window never closes either, which is why it never appears in `agg_plays_per_minute` — and the test asserts that.
+9. **The fixture stream gains three messages after its twelve plays:** a re-emission of the first play (exactly what a poller restart mid-track produces), and **one flush event per fixture listener**, ten minutes later. A window is written only once the watermark passes its end, and the watermark trails the latest `started_at` by 30 s, so without later events the fixture's last minutes would never close. It has to be one flush *per listener*, because the watermark is the minimum across partitions and each listener's events share a partition. The first version had a single flush, and the watermark stuck at 00:01:36, which is `fixture-a`'s last play minus 30 s. The whole fixture is read in one burst, so every partition falls silent at the same instant and goes idle at the same instant, and **a source whose partitions are all idle contributes no watermark at all**. The idle timeout (Decision 5) only helps while at least one partition is still active. The flush windows never close either, which is why nothing from minute 3 onwards appears in `agg_plays_per_minute` — and the test asserts that.
 10. **The integration test runs as Compose project `spot-it`** using `docker-compose.it.yml`, an overlay that removes the host ports that would collide with the dev stack (`!reset`) and maps Postgres to `55433` and the Flink UI to `18081` (`!override`). A project has its own network and volumes, so the test starts from an empty topic without touching dev data, and `down -v` at the end destroys only its own. It passes dummy Spotify variables, because Compose interpolates the poller's `${SPOTIFY_CLIENT_ID:?}` guard even though the poller is never started.
 11. **JSON parsing stays strict** — no `json.ignore-parse-errors`. A message that is not a valid event fails the job, the restart strategy retries it 10 times 10 s apart, and then the job shows FAILED in the Web UI. A poison message should be loud. The topic only ever receives `PlayEvent.to_json()` output.
 12. **Parallelism 1, four task slots.** One source subtask reads all three partitions and tracks a watermark per partition. Four slots fit M4's two jobs plus an ad-hoc SQL client query, and leave room for M5 and M6.
+14. **The Flink services have no `image:` name.** Compose then tags the build per project (`spot-jobmanager`, `spot-it-jobmanager`). The first version tagged `spot-flink:1.20`, and a Compose project isolates networks and volumes but not image tags. Each integration run's `--build` moved the shared tag to an image labelled `spot-it`, and the next dev `up` recreated the dev JobManager to match. A session cluster without HA forgets its jobs when its JobManager is recreated. `flink-submit` resubmitted them, and the upserts made the replay harmless, but it was still an unplanned restart caused by running a test.
 13. **The plays-per-minute panel reads `agg_plays_per_minute`.** That table has no `is_synthetic` column, so the Source filter becomes a subquery on the listener ids each producer uses. Each listener id belongs to exactly one producer.
 
 ---
@@ -55,7 +56,7 @@
 | `flink/sql/jobs/plays-per-minute.sql` | Create: one-minute tumbling window → `agg_plays_per_minute`. |
 | `docker-compose.yml` | Modify: add `jobmanager`, `taskmanager`, `flink-submit` and the `flink-checkpoints` volume; remove `consumer`. |
 | `docker-compose.it.yml` | Create: the integration overlay — ports only. |
-| `simulator/main.py` | Modify: `fixture_flush_event()`, `fixture_stream()`; `run_fixture` sends the stream. |
+| `simulator/main.py` | Modify: `fixture_flush_events()`, `fixture_stream()`; `run_fixture` sends the stream. |
 | `tests/test_simulator.py` | Modify: four tests for the stream. |
 | `tests/integration/test_flink_windows.py` | Create: fixture → Kafka → Flink → Postgres, with exact rows asserted. |
 | `pytest.ini` | Modify: register the `integration` marker and exclude it by default. |
@@ -86,7 +87,7 @@ Kafka and Postgres — declaring them creates nothing in either. Only an
 
 **Interfaces:**
 - Consumes: `flink/jars.txt` from M0.
-- Produces: image `spot-flink:1.20`; services `jobmanager` (healthy when REST answers) and `taskmanager`; volume `flink-checkpoints` mounted at `/opt/flink/checkpoints` in both; the YAML anchor `x-flink` that Task 3's `flink-submit` reuses.
+- Produces: an image per project, named by Compose; services `jobmanager` (healthy when REST answers) and `taskmanager`; volume `flink-checkpoints` mounted at `/opt/flink/checkpoints` in both; the YAML anchor `x-flink` that Task 3's `flink-submit` reuses.
 
 A Flink cluster is two kinds of process. The **JobManager** accepts jobs,
 turns SQL into a dataflow graph, schedules it, and coordinates checkpoints. The
@@ -118,12 +119,17 @@ EOF
 Insert this block between `name: spot` and `services:`. Compose ignores top-level keys that begin with `x-`, and `&flink` names the block so each Flink service can merge it in with `<<: *flink`:
 
 ```yaml
-# Shared by every Flink service: one image, one configuration. The image's
+# Shared by every Flink service: one build, one configuration. The image's
 # entrypoint writes FLINK_PROPERTIES into Flink's config before running any
 # command, including the submit script's.
+#
+# No `image:` name, on purpose. Compose then tags the build per project
+# (spot-jobmanager, spot-it-jobmanager, ...). A fixed tag is shared by every
+# project on the machine: each integration run's --build moved it, and the
+# next dev `up` recreated the JobManager -- and a session cluster without HA
+# forgets its jobs when that happens.
 x-flink: &flink
   build: ./flink
-  image: spot-flink:1.20
   environment:
     FLINK_PROPERTIES: |
       jobmanager.rpc.address: jobmanager
@@ -581,11 +587,11 @@ git commit -m "M4: raw passthrough job, idempotent submit, Flink writes raw_play
 
 **Interfaces:**
 - Consumes: `fixture_events(base) -> list[PlayEvent]`, `FIXTURE_BASE`, `_event(...)`, `load_catalog()` — all existing in `simulator/main.py`.
-- Produces: `FIXTURE_FLUSH_OFFSET_SECONDS = 600`, `FIXTURE_FLUSH_LISTENER = "fixture-flush"`, `fixture_flush_event(base: datetime | None = None) -> PlayEvent`, `fixture_stream(base: datetime | None = None) -> list[PlayEvent]` (14 events: the 12 plays, `events[0]` again, the flush event). `run_fixture(sink)` sends `fixture_stream()` in order. `fixture_events()` itself is unchanged, and so are its 12-event tests.
+- Produces: `FIXTURE_FLUSH_OFFSET_SECONDS = 600`, `fixture_flush_events(base: datetime | None = None) -> list[PlayEvent]` (one per fixture listener, sorted by listener), `fixture_stream(base: datetime | None = None) -> list[PlayEvent]` (15 events: the 12 plays, `events[0]` again, the two flush events). `run_fixture(sink)` sends `fixture_stream()` in order. `fixture_events()` itself is unchanged, and so are its 12-event tests.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add `fixture_flush_event` and `fixture_stream` to the import from
+Add `fixture_flush_events`, `fixture_stream` and `run_fixture` to the import from
 `simulator.main` at the top of `tests/test_simulator.py`, so it reads:
 
 ```python
@@ -593,7 +599,7 @@ from simulator.main import (
     FIXTURE_BASE,
     build_listeners,
     fixture_events,
-    fixture_flush_event,
+    fixture_flush_events,
     fixture_stream,
     run_fixture,
     settings_from_env,
@@ -608,9 +614,9 @@ Append to `tests/test_simulator.py`:
 
 def test_fixture_stream_is_the_twelve_plays_a_replay_and_the_flush():
     stream = fixture_stream()
-    assert len(stream) == 14
+    assert len(stream) == 15
     assert stream[:12] == fixture_events()
-    assert stream[13] == fixture_flush_event()
+    assert stream[13:] == fixture_flush_events()
 
 
 def test_fixture_stream_replays_the_first_play_as_a_restart_would():
@@ -621,13 +627,22 @@ def test_fixture_stream_replays_the_first_play_as_a_restart_would():
     assert stream[12].event_id == stream[0].event_id
 
 
-def test_fixture_flush_event_closes_every_fixture_window():
+def test_every_fixture_listener_gets_a_flush_event():
+    # The watermark is the minimum over partitions, and a listener's events all
+    # land on one partition. Each partition holding fixture data must see event
+    # time move on by itself: if all of them fall silent together, they go
+    # idle together, and an all-idle source freezes the watermark where it was.
+    flushes = fixture_flush_events()
+    assert sorted(e.listener_id for e in flushes) == sorted(
+        {e.listener_id for e in fixture_events()})
+
+
+def test_fixture_flush_events_close_every_fixture_window():
     # The last fixture window ends at +3min; the watermark trails the latest
-    # started_at by 30s. The flush must be later than both together.
-    flush = fixture_flush_event()
-    assert flush.started_at >= FIXTURE_BASE + timedelta(minutes=3, seconds=30)
-    assert flush.listener_id not in {e.listener_id for e in fixture_events()}
-    assert flush.is_synthetic
+    # started_at by 30s. Every flush must be later than both together.
+    for flush in fixture_flush_events():
+        assert flush.started_at >= FIXTURE_BASE + timedelta(minutes=3, seconds=30)
+        assert flush.is_synthetic
 
 
 def test_run_fixture_sends_the_stream_in_order():
@@ -649,7 +664,7 @@ def test_run_fixture_sends_the_stream_in_order():
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
-Expected: collection error, `ImportError: cannot import name 'fixture_flush_event'`.
+Expected: collection error, `ImportError: cannot import name 'fixture_flush_events'`.
 
 - [ ] **Step 3: Implement**
 
@@ -658,28 +673,37 @@ In `simulator/main.py`, replace `run_fixture` and add the two functions above it
 ```python
 # The fixture's twelve plays end at +2m38s. A window is written only when the
 # watermark -- the latest started_at seen, minus 30s -- passes its end, so with
-# nothing later the third minute would stay open forever. This event is ten
-# minutes on, far past every fixture window. Its own window never closes, so it
-# never appears in an agg_ table.
+# nothing later the third minute would stay open forever.
+#
+# One flush event per fixture listener, not one in total. The watermark is the
+# MINIMUM over partitions, and each listener's events share a partition. A
+# single flush moves only its own partition; the others stay behind, and since
+# the whole fixture is read in one burst, every partition then falls silent at
+# once. All of them go idle together, and an all-idle source freezes the
+# watermark where it was. Seen in M4: one flush, watermark stuck at 00:01:36.
+#
+# Ten minutes on is far past every fixture window, and the flush windows
+# themselves never close, so no flush event reaches an agg_ table.
 FIXTURE_FLUSH_OFFSET_SECONDS = 600
-FIXTURE_FLUSH_LISTENER = "fixture-flush"
 
 
-def fixture_flush_event(base: datetime | None = None) -> PlayEvent:
-    """One later event whose only job is to move event time forward."""
+def fixture_flush_events(base: datetime | None = None) -> list[PlayEvent]:
+    """One later event per fixture listener, to move event time forward on
+    every partition that holds fixture data."""
     anchor = base or FIXTURE_BASE
     track = load_catalog()[0]
     started_at = anchor + timedelta(seconds=FIXTURE_FLUSH_OFFSET_SECONDS)
-    return _event(FIXTURE_FLUSH_LISTENER, track, started_at,
-                  started_at + timedelta(seconds=3))
+    listeners = sorted({listener for _, listener in FIXTURE_SCHEDULE})
+    return [_event(listener, track, started_at, started_at + timedelta(seconds=3))
+            for listener in listeners]
 
 
 def fixture_stream(base: datetime | None = None) -> list[PlayEvent]:
     """Exactly what fixture mode sends, in order: the twelve plays, the first
     play again -- the duplicate a poller restart mid-track produces -- and the
-    flush event."""
+    flush events."""
     events = fixture_events(base)
-    return [*events, events[0], fixture_flush_event(base)]
+    return [*events, events[0], *fixture_flush_events(base)]
 
 
 def run_fixture(sink: KafkaSink) -> None:
@@ -707,7 +731,7 @@ Expected: all pass, the 12-event fixture tests unchanged among them.
 - [ ] **Step 5: Run the whole suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: `109 passed` — 105 before, plus 4.
+Expected: `110 passed` — 105 before, plus 5.
 
 - [ ] **Step 6: Commit**
 
@@ -799,7 +823,7 @@ from datetime import datetime, timedelta, timezone
 import psycopg
 import pytest
 
-from simulator.main import FIXTURE_FLUSH_LISTENER, fixture_events, fixture_stream
+from simulator.main import fixture_events, fixture_stream
 
 pytestmark = pytest.mark.integration
 
@@ -879,20 +903,20 @@ def test_tumbling_windows_count_each_play_exactly_once(windows):
 
 
 def test_a_window_still_open_is_never_written(db, windows):
-    # The flush event's minute has no later event to close it.
+    # The flush events' minute, +10, has no later event to close it.
     count = db.execute("SELECT count(*) FROM agg_plays_per_minute "
-                       "WHERE listener_id = %s", (FIXTURE_FLUSH_LISTENER,)).fetchone()[0]
+                       "WHERE window_start >= %s", (minute(3),)).fetchone()[0]
     assert count == 0
 
 
 def test_passthrough_keeps_one_row_per_event_id(db, windows):
-    # 14 messages on the topic, 13 distinct event_ids: the replay collapses.
+    # 15 messages on the topic, 14 distinct event_ids: the replay collapses.
     distinct_ids = {e.event_id for e in fixture_stream()}
-    assert len(distinct_ids) == 13
+    assert len(distinct_ids) == 14
     rows = db.execute("SELECT event_id FROM raw_plays "
                       "WHERE listener_id LIKE 'fixture-%'").fetchall()
     assert {r[0] for r in rows} == distinct_ids
-    assert len(rows) == 13
+    assert len(rows) == 14
 
 
 def test_passthrough_preserves_the_instant(db, windows):
@@ -912,7 +936,7 @@ instant and fails these equalities; it cannot hide behind formatting.
 - [ ] **Step 4: Confirm the default suite still skips it**
 
 Run: `.venv/bin/pytest -q`
-Expected: `109 passed, 4 deselected`.
+Expected: `110 passed, 4 deselected`.
 
 - [ ] **Step 5: Declare the windowed sink**
 
@@ -1055,7 +1079,7 @@ distinct event_ids is exact because a duplicate never leaves its minute."
 
 **Interfaces:**
 - Consumes: Flink writing `raw_plays` on its own, proven in Task 3 Step 8.
-- Produces: an image with no Postgres client in it; a suite of 95 unit tests (109 minus the 14 that tested the consumer).
+- Produces: an image with no Postgres client in it; a suite of 96 unit tests (110 minus the 14 that tested the consumer).
 
 M2 built this consumer so that groups, offsets and rebalancing could be seen
 before a framework hid them. Task 3 showed the framework hiding them. It has
@@ -1123,7 +1147,7 @@ the whole time the consumer was stopped.
 - [ ] **Step 6: Run the suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: `95 passed, 4 deselected`.
+Expected: `96 passed, 4 deselected`.
 
 - [ ] **Step 7: Commit**
 
@@ -1354,7 +1378,7 @@ before.
 - [ ] **Step 5: The full suite and the integration test**
 
 Run: `.venv/bin/pytest -q`
-Expected: `95 passed, 4 deselected`.
+Expected: `96 passed, 4 deselected`.
 
 Run: `.venv/bin/pytest -m integration -v`
 Expected: `4 passed`, and afterwards `docker compose -p spot-it ps -a` lists nothing.
@@ -1402,7 +1426,7 @@ Rewrite "Current state" for after M4:
 - M0-M4 complete; next is M5, the hopping window.
 - Flink runs a session cluster, Web UI on `:8081`, with jobs submitted from `flink/sql/jobs/` by `flink-submit`.
 - `consumer/` is gone. Replace its bullet with: Flink commits offsets to `flink-<job>` groups for visibility only.
-- Two test commands: `.venv/bin/pytest -q` (95 unit tests, offline), and `.venv/bin/pytest -m integration` (the isolated `spot-it` stack, a few minutes).
+- Two test commands: `.venv/bin/pytest -q` (96 unit tests, offline), and `.venv/bin/pytest -m integration` (the isolated `spot-it` stack, a few minutes).
 - New windowed statements count `DISTINCT event_id`.
 
 Also update the Architecture section's "4 stmts": with M4, two jobs exist.

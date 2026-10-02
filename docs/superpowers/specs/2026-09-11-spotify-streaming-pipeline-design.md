@@ -285,10 +285,19 @@ never produces late data; only events the simulator marks late will be.
 
 ```sql
 INSERT INTO agg_plays_per_minute
-SELECT window_start, window_end, listener_id, COUNT(*)
+SELECT window_start, window_end, listener_id, COUNT(DISTINCT event_id)
 FROM TABLE(TUMBLE(TABLE plays, DESCRIPTOR(started_at), INTERVAL '1' MINUTE))
 GROUP BY window_start, window_end, listener_id;
 ```
+
+`COUNT(DISTINCT event_id)` rather than `COUNT(*)`, corrected in M4: the topic
+is at-least-once, and a poller restart puts the same play on it twice.
+`raw_plays` absorbs a duplicate because both writes land on its `event_id`
+primary key, but this table is keyed by window, so the dedupe has to happen in
+the query. It is exact: two messages share an `event_id` only if `started_at`
+floors to the same 5-second bucket, and those buckets never straddle a minute.
+The hopping and session statements below need the same treatment when M5 and
+M6 build them.
 
 **Top artists — hopping.** Five-minute windows advancing every minute, so each
 event falls into five windows. Flink emits per-artist counts per window;
