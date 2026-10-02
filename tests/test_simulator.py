@@ -32,6 +32,9 @@ from simulator.main import (
     FIXTURE_BASE,
     build_listeners,
     fixture_events,
+    fixture_flush_event,
+    fixture_stream,
+    run_fixture,
     settings_from_env,
 )
 
@@ -118,3 +121,46 @@ def test_fixture_uses_two_listeners():
 def test_fixture_events_round_trip_through_the_schema():
     for event in fixture_events():
         assert PlayEvent.from_json(event.to_json()) == event
+
+
+# --- the stream fixture mode actually sends --------------------------------
+
+
+def test_fixture_stream_is_the_twelve_plays_a_replay_and_the_flush():
+    stream = fixture_stream()
+    assert len(stream) == 14
+    assert stream[:12] == fixture_events()
+    assert stream[13] == fixture_flush_event()
+
+
+def test_fixture_stream_replays_the_first_play_as_a_restart_would():
+    # A poller restarted mid-track re-emits the play in flight. Same event_id,
+    # so raw_plays keeps one row, and the windowed count must too.
+    stream = fixture_stream()
+    assert stream[12] == stream[0]
+    assert stream[12].event_id == stream[0].event_id
+
+
+def test_fixture_flush_event_closes_every_fixture_window():
+    # The last fixture window ends at +3min; the watermark trails the latest
+    # started_at by 30s. The flush must be later than both together.
+    flush = fixture_flush_event()
+    assert flush.started_at >= FIXTURE_BASE + timedelta(minutes=3, seconds=30)
+    assert flush.listener_id not in {e.listener_id for e in fixture_events()}
+    assert flush.is_synthetic
+
+
+def test_run_fixture_sends_the_stream_in_order():
+    class RecordingSink:
+        def __init__(self):
+            self.sent = []
+
+        def send(self, event):
+            self.sent.append(event)
+
+        def flush(self, timeout=10.0):
+            return 0
+
+    sink = RecordingSink()
+    run_fixture(sink)
+    assert sink.sent == fixture_stream()
