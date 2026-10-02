@@ -1,8 +1,8 @@
 """The single source of truth for the shape of a play event.
 
-Both producers, the throwaway M2 consumer, and the tests import this module
-rather than restating the event shape. It deliberately depends on nothing but
-the standard library: a JSON round-trip should not require a Kafka client.
+Both producers and the tests import this module rather than restating the
+event shape. It deliberately depends on nothing but the standard library: a
+JSON round-trip should not require a Kafka client.
 """
 
 from __future__ import annotations

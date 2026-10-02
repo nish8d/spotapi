@@ -223,26 +223,6 @@ services:
       - ./flink/sql:/opt/flink/sql:ro
     restart: "no"
 
-  consumer:
-    build: .
-    # The image's CMD runs the simulator; this service runs the consumer.
-    command: ["python", "-m", "consumer.main"]
-    depends_on:
-      kafka:
-        condition: service_healthy
-      kafka-init:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP: kafka:9092
-      KAFKA_TOPIC: plays
-      CONSUMER_GROUP: raw-plays-writer
-      POSTGRES_DSN: postgresql://spot:spot@postgres:5432/spot
-    # No container_name: `docker compose up --scale consumer=2` needs to be
-    # free to name the replicas, and that scale-up is one of M2's exercises.
-    restart: unless-stopped
-
   grafana:
     image: grafana/grafana:11.3.0
     ports:

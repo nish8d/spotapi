@@ -9,7 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY events/ events/
 COPY producer/ producer/
-COPY consumer/ consumer/
 COPY simulator/ simulator/
 COPY poller/ poller/
 
