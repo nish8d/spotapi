@@ -2294,6 +2294,18 @@ Each panel's SQL run against Postgres with the variable substituted:
 | Event-time skew — minute buckets | 10 | 2 | 10 |
 | Now playing — real account (unfiltered) | 2 | 2 | 2 |
 
+**Correction: that check was wrong, and the dashboard shipped broken.** The
+table above substitutes `'false','true'` by hand, which is what the plan
+*expected* Grafana to render. Grafana actually renders a custom `allValue`
+raw, bypassing `:sqlstring`, so *All* sent `is_synthetic::text IN
+(false,true)` and the three filtered panels failed with `operator does not
+exist: text = boolean`. Found from the browser, confirmed from the
+`STATEMENT:` lines in the Postgres log. Fixed in `e0cb2a2` by dropping the
+cast: `is_synthetic IN (${synthetic:csv})`, which is valid for all three
+renderings. Re-verified with `log_statement='all'` against the live
+dashboard: only the new filter, no errors. The lesson for M4+: verify a
+dashboard by reading what Grafana sends, not what the plan says it sends.
+
 ### Restart idempotence (Task 9, Step 1) — no duplicate
 
 Restarted mid-song, 2m52s into RUSSIAN ROULETTE:
