@@ -318,25 +318,33 @@ Expected: `init.sql  jobs`.
 - [ ] **Step 3: Read the stream, with the watermark beside it**
 
 `CURRENT_WATERMARK(started_at)` returns the watermark at the moment each row
-passes through. A bounded `LIMIT` lets a query on an endless stream finish.
+passes through. (`watermark` itself is a reserved word, hence `current_wm`.)
+
+The `scan.bounded.mode` hint matters. `plays` is **unbounded**: its source
+never finishes, because more messages may always arrive. `LIMIT 15` stops the
+rows but not the source, so without the hint the job runs forever, and the SQL
+client, running a file, prints nothing until the job ends. `latest-offset`
+makes this one read **bounded**: it stops at the offsets that exist when the
+query starts.
 
 ```bash
 docker compose exec -T jobmanager bash -c 'cat > /tmp/explore.sql && bin/sql-client.sh -i sql/init.sql -f /tmp/explore.sql' <<'EOF'
 SET 'sql-client.execution.result-mode' = 'tableau';
 SELECT listener_id, is_synthetic, started_at, observed_at,
-       CURRENT_WATERMARK(started_at) AS watermark
-FROM plays
+       CURRENT_WATERMARK(started_at) AS current_wm
+FROM plays /*+ OPTIONS('scan.bounded.mode' = 'latest-offset') */
 LIMIT 15;
 EOF
 ```
 
-Expected: 15 rows. `started_at` and `observed_at` are parsed timestamps, not
-NULL — if they are NULL, the ISO-8601 format option is wrong. `watermark` is
-NULL in the first rows, because the source emits a watermark periodically
-(every 200 ms) rather than per row, and the first rows arrive before the first
-one. Where it is set, it is 30 s behind the largest `started_at` read so far.
-While it runs, the query appears as a job at <http://localhost:8081>, and it
-finishes when the limit is reached.
+Expected: 15 rows marked `+I`, an insert. Flink treats every table as a
+changelog, and an append-only source only ever inserts. `started_at` and
+`observed_at` are parsed timestamps, not NULL; NULL would mean the ISO-8601
+format option is wrong. `current_wm` is NULL in every row. The source emits a
+watermark periodically, every 200 ms, not per row, and a backlog this size is
+read in one burst before the first one. Watching the watermark advance needs
+the live job's metrics, which is Task 8 Step 1. While the query runs, it
+appears as a job at <http://localhost:8081>.
 
 - [ ] **Step 4: Commit**
 

@@ -180,6 +180,8 @@ services:
       # The JobManager writes each checkpoint's metadata and the TaskManager
       # writes its state, so both must see the same directory.
       - flink-checkpoints:/opt/flink/checkpoints
+      # For ad-hoc queries with the SQL client. Read-only: jobs come from git.
+      - ./flink/sql:/opt/flink/sql:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fs http://localhost:8081/overview > /dev/null"]
       interval: 5s
