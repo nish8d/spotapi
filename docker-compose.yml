@@ -111,6 +111,37 @@ services:
       SIM_MODE: live
     restart: unless-stopped
 
+  poller:
+    build: .
+    # The image's CMD runs the simulator; this service runs the real poller.
+    command: ["python", "-m", "poller.main"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: plays
+      # Compose reads ./.env automatically for substitution, so these come
+      # from the same file the host-side authorization step uses. The :? form
+      # fails the `up` with this message rather than starting a service that
+      # can only crash-loop.
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:?set SPOTIFY_CLIENT_ID in .env (copy .env.example)}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:?set SPOTIFY_CLIENT_SECRET in .env}
+      SPOTIFY_TOKEN_PATH: /app/.spotify_token.json
+      LISTENER_ID: ${LISTENER_ID:-nishad}
+      POLL_INTERVAL: 10
+    volumes:
+      # Read-write on purpose: the poller rewrites this file every time it
+      # refreshes the access token, and that has to outlive the container.
+      #
+      # The file must already exist. Docker creates a DIRECTORY in its place
+      # if it does not, which is why `python -m poller.spotify_auth` runs on
+      # the host first.
+      - ./.spotify_token.json:/app/.spotify_token.json
+    restart: unless-stopped
+
   consumer:
     build: .
     # The image's CMD runs the simulator; this service runs the consumer.

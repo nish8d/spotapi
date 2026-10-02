@@ -11,6 +11,7 @@ COPY events/ events/
 COPY producer/ producer/
 COPY consumer/ consumer/
 COPY simulator/ simulator/
+COPY poller/ poller/
 
 # Unbuffered so container logs appear immediately rather than in blocks.
 ENV PYTHONUNBUFFERED=1
