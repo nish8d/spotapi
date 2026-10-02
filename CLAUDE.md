@@ -4,20 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**M0-M3 complete. Next is M4, the Flink tumbling window.**
+**M0-M4 complete. Next is M5, the hopping window (top artists).**
 
 `docker compose up -d --build` from cold brings up Kafka, Postgres, the
-simulator, the real Spotify poller, the throwaway consumer and Grafana, and
-fills a live dashboard at `http://localhost:3000/d/spot-live` (no login). A
-*Source* dropdown splits real plays from synthetic ones, and a panel at the
-top lists the real account's last ten plays. `.venv/bin/pytest -q` runs 105
-unit tests against fakes and recorded responses — no test contacts a broker,
-a database, or Spotify.
+simulator, the real Spotify poller, a Flink session cluster and Grafana, and
+fills a live dashboard at `http://localhost:3000/d/spot-live` (no login). The
+Flink Web UI is at `http://localhost:8081`. Flink runs two jobs: a passthrough
+into `raw_plays`, and a one-minute tumbling window into
+`agg_plays_per_minute`, which the plays-per-minute panel reads. A *Source*
+dropdown splits real plays from synthetic ones.
+
+Two test commands:
+
+- `.venv/bin/pytest -q` runs 96 unit tests against fakes and recorded
+  responses. No test contacts a broker, a database, or Spotify.
+- `.venv/bin/pytest -m integration` runs the simulator's fixture through an
+  isolated Compose project, `spot-it`, and asserts exact rows in Postgres.
+  It takes about a minute and never touches the dev stack.
 
 What exists: `events/schema.py`, `producer/kafka_sink.py`, `simulator/`,
-`poller/`, `consumer/`, `postgres/init.sql`, `grafana/`. What does not:
-`flink/sql/` (M4-M6); `flink/jars.txt` holds the verified coordinates. The
-three `agg_` tables exist and are empty until Flink fills them.
+`poller/`, `flink/` (image, `submit.sh`, `sql/init.sql`, `sql/jobs/`),
+`postgres/init.sql`, `grafana/`. `agg_top_artists` and `agg_sessions` exist
+and stay empty until M5 and M6.
 
 **A fresh clone needs one manual step before `up`**, or Compose refuses to
 start: `cp .env.example .env`, fill in the Spotify client id and secret, then
@@ -30,8 +38,22 @@ Things to know before working here:
 
 - **Host port 5432 is taken by an unrelated local Postgres**, so Compose maps
   Postgres to `55432:5432`. Containers still use `postgres:5432`.
-- **`consumer/` is scheduled for deletion in M4.** Do not invest in it. See
-  the note on deliberate inefficiency below.
+- **A Flink job is a file.** `flink/sql/jobs/<name>.sql` sets `pipeline.name`
+  to `<name>`, and the one-shot `flink-submit` service submits every job
+  whose name is not already on the cluster, on every `up`. `init.sql`
+  declares the source and every sink once; each job runs as
+  `sql-client.sh -i init.sql -f jobs/<name>.sql`. Adding M5 means adding a
+  file and a sink, not editing a running job.
+- **Every windowed count is `COUNT(DISTINCT event_id)`, never `COUNT(*)`.**
+  The topic is at-least-once. Upsert absorbs a duplicate only in a table
+  keyed by `event_id`; a table keyed by window has to dedupe in the query.
+- **The Flink services have no `image:` name.** A fixed tag is shared across
+  Compose projects, so the integration test's `--build` would move it and
+  recreate the dev JobManager, which forgets its jobs without HA.
+- **Flink commits offsets to `flink-<job>` Kafka groups only for
+  visibility.** It does not read through the group. Its real offsets live in
+  its checkpoints, so `kafka-consumer-groups` shows no members even while it
+  runs.
 
 The authoritative design is
 `docs/superpowers/specs/2026-09-11-spotify-streaming-pipeline-design.md`.
@@ -45,10 +67,11 @@ processing, and containers, and the goal is to understand them — the live
 dashboard is evidence the understanding is real, not the deliverable.
 
 This has a concrete consequence for how you should work here: **some
-inefficiency is deliberate.** Milestone M2 builds a plain Python Kafka consumer
-that M4 deletes and replaces with Flink. That is not technical debt and should
-not be "cleaned up" or skipped. It exists so the owner sees consumer groups,
-offsets, and rebalancing directly before a framework hides them.
+inefficiency is deliberate.** Milestone M2 built a plain Python Kafka consumer
+that M4 deleted and replaced with Flink. That was not technical debt, and
+similar detours later should not be "cleaned up" or skipped. It existed so the
+owner saw consumer groups, offsets, and rebalancing directly before a framework
+hid them.
 
 Explain streaming concepts as they come up rather than assuming background
 knowledge. Prefer showing the mechanism over asserting the conclusion.
@@ -58,8 +81,8 @@ knowledge. Prefer showing the mechanism over asserting the conclusion.
 ```
 spotify-poller ─┐
                 ├─► Kafka topic `plays` ─► Flink SQL ─► Postgres ─► Grafana
-simulator ──────┘    (3 partitions,        (4 stmts)     (agg_*)
-                      key=listener_id)
+simulator ──────┘    (3 partitions,        (1 job per    (agg_*)
+                      key=listener_id)       statement)
 ```
 
 Everything runs locally under Docker Compose. Cost is $0 by design; a Spotify
@@ -70,9 +93,10 @@ owner's Spotify account, and a simulator generating synthetic listeners for
 volume. Synthetic events carry `is_synthetic: true` so they can be filtered
 apart in any query.
 
-Flink runs four SQL statements against one source table: three windowed
-aggregations (tumbling plays-per-minute, hopping top-artists, session windows)
-plus a passthrough that mirrors raw events into `raw_plays`.
+Flink runs four SQL statements against one source table, each as its own
+job: three windowed aggregations (tumbling plays-per-minute, hopping
+top-artists, session windows) plus a passthrough that mirrors raw events into
+`raw_plays`. M4 built the tumbling window and the passthrough.
 
 ### Invariants that are easy to break
 
@@ -157,7 +181,7 @@ already works.
 - Secrets live in `.env` and `.spotify_token.json`, both gitignored. The
   Spotify OAuth scope needed is `user-read-currently-playing`.
 - `events/schema.py` is the single source of truth for the event shape. Both
-  producers, the M2 consumer, and the tests import it rather than restating it.
+  producers and the tests import it rather than restating it.
 - Grafana dashboards and datasources are provisioned from JSON in
   `grafana/provisioning/`, checked into git — not configured through the UI.
 - Flink connector jars are baked into a custom image layer in

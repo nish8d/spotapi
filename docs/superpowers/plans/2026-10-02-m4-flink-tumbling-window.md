@@ -1,6 +1,6 @@
 # M4 — Flink Replaces the Consumer: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A Flink 1.20 session cluster reads the `plays` topic and runs two SQL jobs — a raw passthrough into `raw_plays` and a one-minute tumbling window into `agg_plays_per_minute` — after which the throwaway M2 consumer is deleted and the dashboard's plays-per-minute panel reads Flink's output.
 
@@ -94,7 +94,7 @@ turns SQL into a dataflow graph, schedules it, and coordinates checkpoints. The
 **TaskManager** does the work, in *slots* — one slot runs one parallel copy of
 a job's pipeline. Nothing here runs a job yet.
 
-- [ ] **Step 1: Write the image**
+- [x] **Step 1: Write the image**
 
 ```bash
 cat > flink/Dockerfile <<'EOF'
@@ -114,7 +114,7 @@ RUN grep -v '^#' /tmp/jars.txt | grep . | xargs -n1 wget -q -P /opt/flink/lib/ \
 EOF
 ```
 
-- [ ] **Step 2: Add the cluster to Compose**
+- [x] **Step 2: Add the cluster to Compose**
 
 Insert this block between `name: spot` and `services:`. Compose ignores top-level keys that begin with `x-`, and `&flink` names the block so each Flink service can merge it in with `<<: *flink`:
 
@@ -195,7 +195,7 @@ volumes:
   flink-checkpoints:
 ```
 
-- [ ] **Step 3: Validate, build, start**
+- [x] **Step 3: Validate, build, start**
 
 ```bash
 docker compose config --quiet && echo "compose config valid"
@@ -205,7 +205,7 @@ docker compose ps jobmanager taskmanager
 
 Expected: `compose config valid`, both services `Up`, the JobManager `(healthy)`.
 
-- [ ] **Step 4: Check the jars, the config and the slots**
+- [x] **Step 4: Check the jars, the config and the slots**
 
 ```bash
 docker compose exec -T jobmanager ls /opt/flink/lib | grep -E 'kafka|jdbc|postgres'
@@ -232,7 +232,7 @@ that file as nested YAML, so `execution.checkpointing.interval` appears as
 `interval:` three levels deep and a flat grep misses it. The REST endpoint
 reports the effective, flattened configuration.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add flink/Dockerfile docker-compose.yml
@@ -251,7 +251,7 @@ git commit -m "M4: a Flink 1.20 session cluster with the connector jars baked in
 - Consumes: the running cluster from Task 1; the topic `plays`.
 - Produces: `flink/sql/init.sql`, declaring table `plays` — the spec's DDL, unchanged — after two session `SET`s. Tasks 3 and 5 append sinks to this file. Inside containers it is `/opt/flink/sql/init.sql`.
 
-- [ ] **Step 1: Write the init file**
+- [x] **Step 1: Write the init file**
 
 ```bash
 mkdir -p flink/sql/jobs
@@ -302,7 +302,7 @@ CREATE TABLE plays (
 EOF
 ```
 
-- [ ] **Step 2: Mount the SQL into the JobManager**
+- [x] **Step 2: Mount the SQL into the JobManager**
 
 Add to the `jobmanager` service's `volumes:`, after the checkpoint line:
 
@@ -321,7 +321,7 @@ docker compose exec -T jobmanager ls /opt/flink/sql
 
 Expected: `init.sql  jobs`.
 
-- [ ] **Step 3: Read the stream, with the watermark beside it**
+- [x] **Step 3: Read the stream, with the watermark beside it**
 
 `CURRENT_WATERMARK(started_at)` returns the watermark at the moment each row
 passes through. (`watermark` itself is a reserved word, hence `current_wm`.)
@@ -352,7 +352,7 @@ read in one burst before the first one. Watching the watermark advance needs
 the live job's metrics, which is Task 8 Step 1. While the query runs, it
 appears as a job at <http://localhost:8081>.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add flink/sql/init.sql docker-compose.yml
@@ -371,7 +371,7 @@ git commit -m "M4: the plays source table, explored with CURRENT_WATERMARK"
 - Consumes: `plays` from Task 2; Postgres `raw_plays` from `postgres/init.sql`.
 - Produces: Flink table `raw_plays`, declared in `init.sql`; job `raw-passthrough`; script `/opt/flink/bin/spot-submit.sh` in the image; one-shot service `flink-submit`. Contract for every job file: `flink/sql/jobs/<name>.sql` begins with `SET 'pipeline.name' = '<name>';`. The submit script matches on that name.
 
-- [ ] **Step 1: Declare the sink**
+- [x] **Step 1: Declare the sink**
 
 ```bash
 cat >> flink/sql/init.sql <<'EOF'
@@ -407,7 +407,7 @@ CREATE TABLE raw_plays (
 EOF
 ```
 
-- [ ] **Step 2: Write the job**
+- [x] **Step 2: Write the job**
 
 ```bash
 cat > flink/sql/jobs/raw-passthrough.sql <<'EOF'
@@ -429,7 +429,7 @@ FROM plays /*+ OPTIONS('properties.group.id' = 'flink-raw-passthrough') */;
 EOF
 ```
 
-- [ ] **Step 3: Write the submit script**
+- [x] **Step 3: Write the submit script**
 
 ```bash
 cat > flink/submit.sh <<'EOF'
@@ -466,7 +466,7 @@ Add the script to the image, at the end of `flink/Dockerfile`:
 COPY --chmod=755 submit.sh /opt/flink/bin/spot-submit.sh
 ```
 
-- [ ] **Step 4: Add the submit service**
+- [x] **Step 4: Add the submit service**
 
 Insert after `taskmanager` in `docker-compose.yml`:
 
@@ -490,7 +490,7 @@ Insert after `taskmanager` in `docker-compose.yml`:
     restart: "no"
 ```
 
-- [ ] **Step 5: Note where raw_plays stands, then stop the consumer**
+- [x] **Step 5: Note where raw_plays stands, then stop the consumer**
 
 ```bash
 docker compose exec -T postgres psql -U spot -d spot -c "
@@ -501,7 +501,7 @@ docker compose stop consumer
 From here until Flink starts, nothing writes `raw_plays`, and the simulator's
 events wait in the topic.
 
-- [ ] **Step 6: Submit, and check what the submit script prints**
+- [x] **Step 6: Submit, and check what the submit script prints**
 
 ```bash
 docker compose up -d --build flink-submit
@@ -524,7 +524,7 @@ fixing anything, so it does not use up its ten attempts. The submit script
 matches `: raw-passthrough (` in this output. If the shape differs, fix the
 `grep` in `submit.sh` before going on.
 
-- [ ] **Step 7: Prove the submit is idempotent**
+- [x] **Step 7: Prove the submit is idempotent**
 
 ```bash
 docker compose up -d flink-submit
@@ -534,7 +534,7 @@ docker compose exec -T jobmanager bin/flink list -r | grep -c raw-passthrough
 
 Expected: `skip   raw-passthrough: already on the cluster`, and a count of `1`.
 
-- [ ] **Step 8: Prove Flink is writing, with the consumer still stopped**
+- [x] **Step 8: Prove Flink is writing, with the consumer still stopped**
 
 ```bash
 sleep 30
@@ -548,7 +548,7 @@ offset and rewrote every existing row. That rewrite is invisible, because each
 upsert wrote the values that were already there — invariants 2 and 3 doing
 their job.
 
-- [ ] **Step 9: See how differently Kafka sees the two readers**
+- [x] **Step 9: See how differently Kafka sees the two readers**
 
 ```bash
 docker compose exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh \
@@ -570,7 +570,7 @@ Expected, and worth reading slowly:
 
 Leave the consumer stopped. Task 6 deletes it.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add flink/ docker-compose.yml
@@ -589,7 +589,7 @@ git commit -m "M4: raw passthrough job, idempotent submit, Flink writes raw_play
 - Consumes: `fixture_events(base) -> list[PlayEvent]`, `FIXTURE_BASE`, `_event(...)`, `load_catalog()` — all existing in `simulator/main.py`.
 - Produces: `FIXTURE_FLUSH_OFFSET_SECONDS = 600`, `fixture_flush_events(base: datetime | None = None) -> list[PlayEvent]` (one per fixture listener, sorted by listener), `fixture_stream(base: datetime | None = None) -> list[PlayEvent]` (15 events: the 12 plays, `events[0]` again, the two flush events). `run_fixture(sink)` sends `fixture_stream()` in order. `fixture_events()` itself is unchanged, and so are its 12-event tests.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add `fixture_flush_events`, `fixture_stream` and `run_fixture` to the import from
 `simulator.main` at the top of `tests/test_simulator.py`, so it reads:
@@ -661,12 +661,12 @@ def test_run_fixture_sends_the_stream_in_order():
     assert sink.sent == fixture_stream()
 ```
 
-- [ ] **Step 2: Run them to see them fail**
+- [x] **Step 2: Run them to see them fail**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
 Expected: collection error, `ImportError: cannot import name 'fixture_flush_events'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `simulator/main.py`, replace `run_fixture` and add the two functions above it:
 
@@ -723,17 +723,17 @@ stream now has to earn:
 # replayed first play counted once.
 ```
 
-- [ ] **Step 4: Run them to see them pass**
+- [x] **Step 4: Run them to see them pass**
 
 Run: `.venv/bin/pytest tests/test_simulator.py -q`
 Expected: all pass, the 12-event fixture tests unchanged among them.
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: `110 passed` — 105 before, plus 5.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add simulator/main.py tests/test_simulator.py
@@ -756,7 +756,7 @@ This is the only real check on the Flink SQL, so the test comes first and is
 run against the spec's own `COUNT(*)` to watch it fail for the reason given in
 Decision 1.
 
-- [ ] **Step 1: Write the overlay**
+- [x] **Step 1: Write the overlay**
 
 ```bash
 cat > docker-compose.it.yml <<'EOF'
@@ -784,7 +784,7 @@ docker compose -p spot-it -f docker-compose.yml -f docker-compose.it.yml config 
 Expected: published ports `18081` and `55433` only. Grafana is not started by
 the test, and `kafka` has no host port at all.
 
-- [ ] **Step 2: Register the marker**
+- [x] **Step 2: Register the marker**
 
 ```bash
 cat > pytest.ini <<'EOF'
@@ -800,7 +800,7 @@ addopts = -m "not integration"
 EOF
 ```
 
-- [ ] **Step 3: Write the test**
+- [x] **Step 3: Write the test**
 
 ```bash
 mkdir -p tests/integration
@@ -933,12 +933,12 @@ EOF
 compare as instants. A time-zone mistake anywhere in the chain shifts the
 instant and fails these equalities; it cannot hide behind formatting.
 
-- [ ] **Step 4: Confirm the default suite still skips it**
+- [x] **Step 4: Confirm the default suite still skips it**
 
 Run: `.venv/bin/pytest -q`
 Expected: `110 passed, 4 deselected`.
 
-- [ ] **Step 5: Declare the windowed sink**
+- [x] **Step 5: Declare the windowed sink**
 
 ```bash
 cat >> flink/sql/init.sql <<'EOF'
@@ -962,7 +962,7 @@ CREATE TABLE agg_plays_per_minute (
 EOF
 ```
 
-- [ ] **Step 6: Write the job exactly as the spec has it**
+- [x] **Step 6: Write the job exactly as the spec has it**
 
 ```bash
 cat > flink/sql/jobs/plays-per-minute.sql <<'EOF'
@@ -983,7 +983,7 @@ GROUP BY window_start, window_end, listener_id;
 EOF
 ```
 
-- [ ] **Step 7: Run the integration test and watch it fail**
+- [x] **Step 7: Run the integration test and watch it fail**
 
 The test starts a second full stack beside the dev one. Check there is room
 first:
@@ -1004,7 +1004,7 @@ passthrough tests pass on the same data: `raw_plays` collapsed the replay onto
 one primary key, and the window counted both messages. That is Decision 1,
 seen from the outside.
 
-- [ ] **Step 8: Count plays, not messages**
+- [x] **Step 8: Count plays, not messages**
 
 In `flink/sql/jobs/plays-per-minute.sql`, replace the `INSERT` statement and
 the comment above it with:
@@ -1026,12 +1026,12 @@ FROM TABLE(TUMBLE(TABLE plays_for_plays_per_minute, DESCRIPTOR(started_at),
 GROUP BY window_start, window_end, listener_id;
 ```
 
-- [ ] **Step 9: Run it again**
+- [x] **Step 9: Run it again**
 
 Run: `.venv/bin/pytest -m integration -v`
 Expected: `4 passed`.
 
-- [ ] **Step 10: Correct the spec**
+- [x] **Step 10: Correct the spec**
 
 In the spec's "The three aggregations" section, change the tumbling statement's
 `COUNT(*)` to `COUNT(DISTINCT event_id)`, and add this paragraph directly
@@ -1048,7 +1048,7 @@ The hopping and session statements below need the same treatment when M5 and
 M6 build them.
 ```
 
-- [ ] **Step 11: Submit it to the dev stack**
+- [x] **Step 11: Submit it to the dev stack**
 
 ```bash
 docker compose up -d flink-submit
@@ -1057,7 +1057,7 @@ docker compose logs flink-submit | grep -E '^(skip|submit)'
 
 Expected: `skip   raw-passthrough: already on the cluster` and `submit plays-per-minute`.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add docker-compose.it.yml pytest.ini tests/integration/ flink/sql/ \
@@ -1085,13 +1085,13 @@ M2 built this consumer so that groups, offsets and rebalancing could be seen
 before a framework hid them. Task 3 showed the framework hiding them. It has
 done its job.
 
-- [ ] **Step 1: Delete the package and its tests**
+- [x] **Step 1: Delete the package and its tests**
 
 ```bash
 git rm -r -q consumer/ tests/test_consumer.py tests/test_pg_sink.py
 ```
 
-- [ ] **Step 2: Remove the service and the image line**
+- [x] **Step 2: Remove the service and the image line**
 
 Delete the whole `consumer:` service block from `docker-compose.yml`, from
 `  consumer:` through its `restart: unless-stopped`. Then:
@@ -1107,7 +1107,7 @@ grep -n consumer Dockerfile docker-compose.yml || echo "no consumer left"
 
 Expected: `no consumer left`.
 
-- [ ] **Step 3: Move psycopg to the dev requirements**
+- [x] **Step 3: Move psycopg to the dev requirements**
 
 ```bash
 cat > requirements.txt <<'EOF'
@@ -1122,14 +1122,14 @@ psycopg[binary]==3.2.9
 EOF
 ```
 
-- [ ] **Step 4: Stop naming the consumer in the schema's docstring**
+- [x] **Step 4: Stop naming the consumer in the schema's docstring**
 
 In `events/schema.py`, line 3 currently reads `Both producers, the throwaway M2
 consumer, and the tests import this module`. Replace `the throwaway M2
 consumer, ` with nothing, leaving `Both producers and the tests import this
 module` (rewrap the paragraph if the line now reads oddly).
 
-- [ ] **Step 5: Remove the container and the group it left behind**
+- [x] **Step 5: Remove the container and the group it left behind**
 
 ```bash
 docker compose up -d --build --remove-orphans
@@ -1144,12 +1144,12 @@ successful`, then a list showing only the `flink-*` groups. A group outlives
 its consumers until it is deleted — Kafka kept `raw-plays-writer`'s offsets
 the whole time the consumer was stopped.
 
-- [ ] **Step 6: Run the suite**
+- [x] **Step 6: Run the suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: `96 passed, 4 deselected`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A consumer/ tests/ docker-compose.yml Dockerfile requirements.txt requirements-dev.txt events/schema.py
@@ -1167,7 +1167,7 @@ git commit -m "M4: retire the M2 consumer; Flink owns raw_plays"
 - Consumes: `agg_plays_per_minute`, being filled by the dev stack's `plays-per-minute` job; the `synthetic` variable from M3.
 - Produces: panel 1 reading `agg_plays_per_minute`.
 
-- [ ] **Step 1: Repoint panel 1**
+- [x] **Step 1: Repoint panel 1**
 
 ```bash
 python3 - <<'EOF'
@@ -1200,7 +1200,7 @@ print(panel["targets"][0]["rawSql"])
 EOF
 ```
 
-- [ ] **Step 2: Check the query with each rendering Grafana produces**
+- [x] **Step 2: Check the query with each rendering Grafana produces**
 
 These are the three renderings M3 observed in the Postgres log, not guesses:
 
@@ -1216,7 +1216,7 @@ done
 Expected: three lines, no errors. Listener counts: about 21, at most 1 (the
 real account, if it played in the last 15 minutes), and about 20.
 
-- [ ] **Step 3: Check what Grafana actually sends**
+- [x] **Step 3: Check what Grafana actually sends**
 
 ```bash
 docker compose exec -T postgres psql -U spot -d spot -qc "ALTER SYSTEM SET log_statement = 'all'" -c "SELECT pg_reload_conf()"
@@ -1233,7 +1233,7 @@ docker compose exec -T postgres psql -U spot -d spot -qc "ALTER SYSTEM RESET log
 Expected: the panel's query with each of the three renderings, and no `ERROR`
 lines. The panel shows bars that stop a minute or so short of now.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add grafana/dashboards/spot.json
@@ -1246,7 +1246,7 @@ git commit -m "M4: plays-per-minute panel reads Flink's tumbling windows"
 
 **Files:** Modify: this plan file, `CLAUDE.md`
 
-- [ ] **Step 1: Watch the watermark advance**
+- [x] **Step 1: Watch the watermark advance**
 
 ```bash
 cat > /tmp/watermarks.py <<'EOF'
@@ -1267,13 +1267,36 @@ EOF
 python3 /tmp/watermarks.py; sleep 20; python3 /tmp/watermarks.py; date -u +%H:%M:%S
 ```
 
-Expected: the same operators twice, each watermark later the second time, and
-both roughly 30 s or more behind the UTC clock printed last. The source shows
-no input watermark of its own; the window operator's is the one that matters.
-In the UI: <http://localhost:8081> → `plays-per-minute` → the window operator →
-*Watermarks*.
+Expected: the window operator of `plays-per-minute`, roughly 30-90 s behind
+the UTC clock, and later on the second reading *if an event arrived in
+between*. The watermark follows **event time, not the clock**: it is the
+newest `started_at` minus 30 s, taken as the minimum across partitions that
+are not idle, and it moves only when an event moves it. Two identical
+readings mean no new play reached the slowest active partition during those
+20 s. To see why, list the newest `started_at` on each partition:
 
-- [ ] **Step 2: Flink's count against a count of the raw rows**
+```bash
+docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 \
+  --topic plays --from-beginning --timeout-ms 6000 --property print.partition=true 2>/dev/null \
+  | python3 -c '
+import sys, json
+last = {}
+for line in sys.stdin:
+    part, _, js = line.partition("\t")
+    try: last[part] = max(last.get(part, ""), json.loads(js)["started_at"])
+    except ValueError: pass
+print("\n".join(f"{p} newest started_at {t}" for p, t in sorted(last.items())))'
+```
+
+The watermark is 30 s behind the smallest of those, unless that partition has
+been silent for 30 s, in which case it is idle and does not count. Listener
+ids do not spread evenly over three partitions, so one partition is often
+sparse. Without the idle timeout, that partition would hold the whole job
+back. The source shows no input watermark of its own; the window operator's
+is the one that matters. In the UI: <http://localhost:8081> →
+`plays-per-minute` → the window operator → *Watermarks*.
+
+- [x] **Step 2: Flink's count against a count of the raw rows**
 
 For every window Flink has closed, Postgres can recount the same minute from
 `raw_plays`. They must agree exactly.
@@ -1316,7 +1339,7 @@ WHERE f.play_count IS NULL;"
 Real-listener rows are late data, and the late-event panel that will surface
 them is M7's. Synthetic rows would be a bug.
 
-- [ ] **Step 3: Kill the TaskManager and watch the job recover**
+- [x] **Step 3: Kill the TaskManager and watch the job recover**
 
 ```bash
 curl -s http://localhost:8081/jobs/overview | python3 -c '
@@ -1350,7 +1373,7 @@ operator state rewound to the checkpoint and the Kafka offsets rewound with
 it, so the events after the checkpoint were read again. Open windows were
 rebuilt from them, and closed windows were rewritten with the same counts.
 
-- [ ] **Step 4: Cancel the windowed job and resubmit it from scratch**
+- [x] **Step 4: Cancel the windowed job and resubmit it from scratch**
 
 This is the replay of Decision 8: a brand-new job, no checkpoint, reading from
 the earliest offset. A fixed cut-off taken before the cancel makes the before
@@ -1375,7 +1398,7 @@ those windows from the topic, and every upsert wrote a count that was already
 there — nothing lost, nothing doubled. Re-run Step 2 for the same result as
 before.
 
-- [ ] **Step 5: The full suite and the integration test**
+- [x] **Step 5: The full suite and the integration test**
 
 Run: `.venv/bin/pytest -q`
 Expected: `96 passed, 4 deselected`.
@@ -1383,7 +1406,7 @@ Expected: `96 passed, 4 deselected`.
 Run: `.venv/bin/pytest -m integration -v`
 Expected: `4 passed`, and afterwards `docker compose -p spot-it ps -a` lists nothing.
 
-- [ ] **Step 6: A cold start reaches a filled dashboard**
+- [x] **Step 6: A cold start reaches a filled dashboard**
 
 ```bash
 docker compose down -v
@@ -1403,23 +1426,23 @@ the start, plus 30 s of watermark delay. No `consumer` in the service list.
 Both jobs are `(RUNNING)`. `raw` and `per_minute` are non-zero,
 `top_artists` and `sessions` are `0`, and Grafana returns `200`.
 
-- [ ] **Step 7: Check the milestone acceptance criteria**
+- [x] **Step 7: Check the milestone acceptance criteria**
 
 From the spec's M4 section:
 
-- [ ] `agg_plays_per_minute` fills (Steps 2 and 6).
-- [ ] The Flink Web UI shows the watermark advancing (Step 1).
-- [ ] The integration test on the fixture event set passes (Step 5).
-- [ ] The Python consumer is retired from the Compose stack, with Flink writing `raw_plays` (Task 3 Step 8, Task 6).
+- [x] `agg_plays_per_minute` fills (Steps 2 and 6).
+- [x] The Flink Web UI shows the watermark advancing (Step 1).
+- [x] The integration test on the fixture event set passes (Step 5).
+- [x] The Python consumer is retired from the Compose stack, with Flink writing `raw_plays` (Task 3 Step 8, Task 6).
 
 Plus the project's own standards:
 
-- [ ] `.venv/bin/pytest -q` is green and offline.
-- [ ] `docker compose up -d --build` from cold reaches a filled dashboard.
-- [ ] `agg_top_artists` and `agg_sessions` are still empty.
-- [ ] `.env` and `.spotify_token.json` are untracked.
+- [x] `.venv/bin/pytest -q` is green and offline.
+- [x] `docker compose up -d --build` from cold reaches a filled dashboard.
+- [x] `agg_top_artists` and `agg_sessions` are still empty.
+- [x] `.env` and `.spotify_token.json` are untracked.
 
-- [ ] **Step 8: Update CLAUDE.md**
+- [x] **Step 8: Update CLAUDE.md**
 
 Rewrite "Current state" for after M4:
 
@@ -1431,14 +1454,14 @@ Rewrite "Current state" for after M4:
 
 Also update the Architecture section's "4 stmts": with M4, two jobs exist.
 
-- [ ] **Step 9: Record what actually happened**
+- [x] **Step 9: Record what actually happened**
 
 Replace the Results section below with the real numbers and output, as M2 and
 M3 did. Include especially: the red integration run's actual failing tuple;
 the watermark lag observed in Step 1; the Step 2 window count; and the
 recovery time in Step 3.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-10-02-m4-flink-tumbling-window.md CLAUDE.md
@@ -1449,7 +1472,100 @@ git commit -m "M4: mark plan complete, record acceptance results"
 
 ## Results
 
-*Filled in during Task 8, Step 9.*
+Actual numbers and output from the run on 2026-10-02, replacing the
+expectations written above. Six things went differently from the plan. Each is
+now corrected in the task it belongs to, and the corrections are the most
+useful part of this milestone.
+
+### What the plan got wrong
+
+| # | Where | Planned | What happened | Fix |
+|---|---|---|---|---|
+| 1 | Task 1 Step 4 | grep `conf/config.yaml` for three keys | matched one: Flink 1.20 writes nested YAML | read `/jobmanager/config` over REST |
+| 2 | Task 2 Step 3 | `LIMIT 15` ends the query | ran 3+ minutes, printed nothing: the source is unbounded, so the job never finishes, though `Limit` had passed 15 rows | `scan.bounded.mode = latest-offset` |
+| 3 | Task 2 Step 3 | alias `AS watermark` | `ParseException`: reserved word | `AS current_wm` |
+| 4 | Task 3 Step 6 | `TIMESTAMP_LTZ(3)` JDBC sink, verified by `EXPLAIN` | `UnsupportedOperationException: Unsupported type: TIMESTAMP_LTZ(3)` at runtime, job `RESTARTING` | sink columns `TIMESTAMP(3)`, job casts in the UTC session zone |
+| 5 | Task 4, found in Task 5 | one flush event | watermark froze at `00:01:36`; minutes 1 and 2 never closed | one flush per fixture listener |
+| 6 | Task 1, found in Task 5 | `image: spot-flink:1.20` | integration `--build` moved the shared tag; next dev `up` recreated the JobManager and its jobs vanished | no `image:` name |
+
+**#5, how it was found.** The fixture landed as partition 0 = `fixture-a` ×7
+(with the replay), partition 2 = `fixture-b` ×6 + the flush, partition 1
+empty. The window operator's input watermark was `1767225696000`
+= 00:01:36, which is `fixture-a`'s last play (+2:06) minus 30 s. It was still
+there 108 s after the job started, far past the 30 s idle timeout. One
+hand-produced event on partition 2 alone closed minutes 1 and 2 within 3 s.
+Cause: the backlog is read in one burst, so every partition falls silent at
+the same instant and goes idle together, and a source whose partitions are all
+idle contributes no watermark. The idle timeout only helps while some
+partition is still active.
+
+**#6, how it was found.** `flink-submit` resubmitted `raw-passthrough` with a
+new id when it should have skipped it. `docker events` showed Compose
+recreating `spot-jobmanager-1` at 04:36:39, and `docker image inspect
+spot-flink:1.20` showed `com.docker.compose.project=spot-it`. The integration
+run had retagged the image the dev stack used. No data was affected, because
+the resubmitted jobs replayed the topic and upserted identical rows.
+
+### The red run (Task 5 Step 7)
+
+With the spec's `COUNT(*)` and the flush fixed:
+
+```
+At index 0 diff: (... 00:00, ... 00:01, 'fixture-a', 4) != (... 00:00, ... 00:01, 'fixture-a', 3)
+1 failed, 3 passed in 55.94s
+```
+
+The two passthrough tests passed on the same data: `raw_plays` collapsed the
+replay on its primary key, and the window counted both messages. With
+`COUNT(DISTINCT event_id)`: `4 passed in 56.56s`.
+
+### Task 3: two readers, as Kafka sees them
+
+```
+raw-plays-writer       plays 2  33  34  1  -     (stopped consumer, lag growing)
+raw-plays-writer       plays 1  76  80  4  -
+raw-plays-writer       plays 0  83  87  4  -
+flink-raw-passthrough  plays 2  34  34  0  -     (no members, yet caught up)
+flink-raw-passthrough  plays 1  80  80  0  -
+flink-raw-passthrough  plays 0  86  87  1  -
+```
+
+`raw_plays` went from 192 to 201 rows with the consumer stopped. The newest
+row was 4 s old, and `observed_at - started_at` was 0-10 s, so no time-zone
+shift. Task 6 also found a leftover `flink-plays` group, committed by Task 2's
+ad-hoc queries through the source table's default group id. Both stale groups
+were deleted.
+
+### Acceptance (Task 8)
+
+- **Watermark.** 04:51:02, then 04:51:11 (twice, 25 s apart), then 04:51:17,
+  against clocks of 04:51:45-04:52:43. It moves in steps as plays arrive, not
+  with the clock. Partition 2 had 2 events in 5 minutes, newest 04:50:39. Idle,
+  it was excluded; without the idle timeout it would have held the job at
+  04:50:09.
+- **Flink against a recount of raw rows:** 348 windows, `0 | 0 | 0`. No late
+  data was dropped, real plays included.
+- **TaskManager killed** at 04:53:24. The loss was noticed at 04:54:07 (43 s,
+  heartbeat timeout). A new TaskManager came up at 04:54:09, and both jobs
+  were `RUNNING` at 04:54:19 (10 s) with **the same job ids**, restored from
+  checkpoint 30 (30 completed, 1 failed: the one in flight). Afterwards: 356
+  windows, `0 | 0 | 0`.
+- **Cancel and resubmit from scratch.** Cut-off 04:53:00: `356 | 364` before,
+  `356 | 364` after. Identical.
+- **Suites.** `96 passed, 4 deselected` offline, and `4 passed` in 56 s
+  integration. The `spot-it` project left no containers.
+- **Cold start.** Every service up, both jobs `RUNNING`, Grafana `200`, no
+  consumer. The first window was written 22 s after `up`, which looked
+  impossible but was correct. The poller started 3½ minutes into a real track,
+  so its derived `started_at` was 04:53:56, and the first simulator events
+  moved the watermark past that minute at once. It was counted only because
+  the poller's event reached Flink before the watermark passed 04:54. In the
+  other order it would have been late and dropped: present in `raw_plays`,
+  absent from `agg_plays_per_minute`. That is the case M7's late-event panel
+  exists for.
+- `agg_top_artists` and `agg_sessions`: 0 rows.
+- Dashboard: the Postgres log showed `IN (false,true)` ×21, `IN (false)` ×13,
+  `IN (true)` ×3, and 0 errors.
 
 ---
 
