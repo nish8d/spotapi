@@ -83,8 +83,8 @@
     {
       "id": 1,
       "type": "timeseries",
-      "title": "Plays per minute, by listener",
-      "description": "Counted straight from raw_plays with date_trunc. M4 repoints this at agg_plays_per_minute, where Flink has done the same bucketing in the stream instead of at query time.",
+      "title": "Plays per minute, by listener (Flink)",
+      "description": "Read from agg_plays_per_minute, which Flink writes once per closed one-minute window. A minute appears only after the watermark passes its end -- 30s behind the newest started_at -- so the right edge of this chart always trails the clock by at least that much.",
       "datasource": {
         "type": "postgres",
         "uid": "spot-postgres"
@@ -131,7 +131,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('minute', started_at) AS time, listener_id AS metric, count(*) AS value FROM raw_plays WHERE $__timeFilter(started_at) AND is_synthetic IN (${synthetic:csv}) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT window_start AS time, listener_id AS metric, play_count AS value FROM agg_plays_per_minute WHERE $__timeFilter(window_start) AND listener_id IN (SELECT DISTINCT listener_id FROM raw_plays WHERE is_synthetic IN (${synthetic:csv})) ORDER BY 1"
         }
       ]
     },
