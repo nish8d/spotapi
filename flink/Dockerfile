@@ -11,3 +11,6 @@ RUN grep -v '^#' /tmp/jars.txt | grep . | xargs -n1 wget -q -P /opt/flink/lib/ \
  # ownership of the directory it is mounted over, and Flink runs as `flink`.
  && mkdir -p /opt/flink/checkpoints \
  && chown flink:flink /opt/flink/checkpoints
+
+# Baked in rather than mounted: it changes far less often than the SQL does.
+COPY --chmod=755 submit.sh /opt/flink/bin/spot-submit.sh

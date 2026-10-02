@@ -34,7 +34,7 @@
 4. **Each job sets its own Kafka `group.id`** (`flink-<job name>`) with an `OPTIONS` hint. Flink does not use consumer groups to *read* — it assigns partitions itself and keeps offsets in its checkpoints — but it *commits* offsets to the group so tools like `kafka-consumer-groups` can see progress. Two jobs sharing a group would overwrite each other's commits and make the lag reading meaningless. A hint is not allowed inside `TABLE(...)` — verified: `ParseException: Encountered "/*+"` — so the windowed job applies it through a temporary view, which keeps `started_at`'s time attribute (verified with `EXPLAIN`).
 5. **`table.exec.source.idle-timeout = 30 s`.** A job's watermark is the *minimum* across its input partitions, and a partition that receives nothing holds it back forever. That happens in the fixture test (two listeners cannot cover three partitions) and in real life whenever the simulator is stopped and only the poller is writing. Marking a partition idle after 30 s of silence lets the others advance. It is safe here because every producer writes near real time, so a partition that wakes up again does so with events at about the current watermark, not behind it.
 6. **The session time zone is pinned to UTC** (`table.local-time-zone`). Tumbling windows over a `TIMESTAMP_LTZ` column are aligned in the session time zone and emit `window_start`/`window_end` as zone-less `TIMESTAMP(3)`. The image's JVM default is already UTC (verified), but a default is not a decision. The integration test asserts exact instants, so an offset would fail it.
-7. **`raw_plays` keeps `started_at`/`observed_at` as `TIMESTAMP_LTZ(3)` end to end**, as the spec's "unchanged" passthrough says. The JDBC Postgres dialect accepts that type (verified with `EXPLAIN` against the real jar). The JSON format parses the schema's `2026-01-01T00:00:00Z`, with no fractional seconds, into it (verified: `2026-01-01 00:00:00.000`).
+7. **Every JDBC sink timestamp column is `TIMESTAMP(3)`, and the passthrough casts `started_at`/`observed_at` into it.** The source keeps `TIMESTAMP_LTZ(3)`: the JSON format parses the schema's `2026-01-01T00:00:00Z`, with no fractional seconds, into it (verified: `2026-01-01 00:00:00.000`). The JDBC connector's planner accepts an LTZ sink column, and `EXPLAIN` passed, but its runtime converter does not. The first passthrough run failed with `UnsupportedOperationException: Unsupported type: TIMESTAMP_LTZ(3)`, which a plan-time check cannot see. The cast happens in the session zone, UTC. Postgres stores the zone-less value as `TIMESTAMPTZ` in the JVM's zone, also UTC. The integration test asserts the exact instant.
 8. **Every (re)submission starts from `earliest-offset`, with no savepoints.** A resubmitted job re-reads the whole topic (7-day retention, a few tens of thousands of events) and recomputes every window, and upsert makes the rewrite idempotent. Resuming from committed group offsets instead would be faster and *wrong*: a window that was half-full when the old job stopped would be rebuilt from only its second half, and the upsert would overwrite the correct count with the smaller one. Task 8 exercises the replay.
 9. **The fixture stream gains two messages after its twelve plays:** a re-emission of the first play (exactly what a poller restart mid-track produces), and a *flush* event ten minutes later. A window is written only once the watermark passes its end, and the watermark trails the latest `started_at` by 30 s, so without a later event the fixture's last minute would never close. The flush event's own window never closes either, which is why it never appears in `agg_plays_per_minute` — and the test asserts that.
 10. **The integration test runs as Compose project `spot-it`** using `docker-compose.it.yml`, an overlay that removes the host ports that would collide with the dev stack (`!reset`) and maps Postgres to `55433` and the Flink UI to `18081` (`!override`). A project has its own network and volumes, so the test starts from an empty topic without touching dev data, and `down -v` at the end destroys only its own. It passes dummy Spotify variables, because Compose interpolates the poller's `${SPOTIFY_CLIENT_ID:?}` guard even though the poller is never started.
@@ -384,8 +384,12 @@ CREATE TABLE raw_plays (
   artist_name  STRING,
   album_name   STRING,
   duration_ms  INT,
-  started_at   TIMESTAMP_LTZ(3),
-  observed_at  TIMESTAMP_LTZ(3),
+  -- TIMESTAMP(3), not the source's TIMESTAMP_LTZ(3): the JDBC connector's
+  -- planner accepts LTZ but its runtime converter does not ("Unsupported
+  -- type: TIMESTAMP_LTZ(3)"). The job casts in the session zone, UTC, and
+  -- Postgres stores the result as TIMESTAMPTZ in the JVM zone, also UTC.
+  started_at   TIMESTAMP(3),
+  observed_at  TIMESTAMP(3),
   PRIMARY KEY (event_id) NOT ENFORCED
 ) WITH (
   'connector' = 'jdbc',
@@ -401,9 +405,10 @@ EOF
 
 ```bash
 cat > flink/sql/jobs/raw-passthrough.sql <<'EOF'
--- Every event into raw_plays, unchanged: the job the M2 consumer did. An
--- upsert on event_id, so replaying the topic rewrites rows with the values
--- they already have.
+-- Every event into raw_plays: the job the M2 consumer did. An upsert on
+-- event_id, so replaying the topic rewrites rows with the values they already
+-- have. Unchanged except the two timestamps, cast for the JDBC sink -- see the
+-- raw_plays declaration in init.sql.
 SET 'pipeline.name' = 'raw-passthrough';
 
 -- The hint gives this job its own Kafka group. Flink does not read through
@@ -412,7 +417,8 @@ SET 'pipeline.name' = 'raw-passthrough';
 -- kafka-consumer-groups can show this job's progress apart from others'.
 INSERT INTO raw_plays
 SELECT event_id, listener_id, is_synthetic, track_id, track_name,
-       artist_name, album_name, duration_ms, started_at, observed_at
+       artist_name, album_name, duration_ms,
+       CAST(started_at AS TIMESTAMP(3)), CAST(observed_at AS TIMESTAMP(3))
 FROM plays /*+ OPTIONS('properties.group.id' = 'flink-raw-passthrough') */;
 EOF
 ```
@@ -505,7 +511,10 @@ docker compose exec -T jobmanager bin/flink list -r
 ```
 
 Expected: one line in the shape
-`<date> <time> : <job id> : raw-passthrough (RUNNING)`. The submit script
+`<date> <time> : <job id> : raw-passthrough (RUNNING)`. `(RESTARTING)` means
+the job failed and the restart strategy is retrying. Read the cause with
+`curl -s localhost:8081/jobs/<job id>/exceptions`, and cancel the job before
+fixing anything, so it does not use up its ten attempts. The submit script
 matches `: raw-passthrough (` in this output. If the shape differs, fix the
 `grep` in `submit.sh` before going on.
 

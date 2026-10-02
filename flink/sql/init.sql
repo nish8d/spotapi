@@ -41,3 +41,32 @@ CREATE TABLE plays (
   'format' = 'json',
   'json.timestamp-format.standard' = 'ISO-8601'
 );
+
+-- Sinks. Each PRIMARY KEY matches its Postgres table's exactly, and that is
+-- what puts the JDBC connector in upsert mode: it writes
+-- INSERT ... ON CONFLICT (key) DO UPDATE. NOT ENFORCED because Flink does not
+-- check uniqueness itself -- Postgres does.
+
+CREATE TABLE raw_plays (
+  event_id     STRING,
+  listener_id  STRING,
+  is_synthetic BOOLEAN,
+  track_id     STRING,
+  track_name   STRING,
+  artist_name  STRING,
+  album_name   STRING,
+  duration_ms  INT,
+  -- TIMESTAMP(3), not the source's TIMESTAMP_LTZ(3): the JDBC connector's
+  -- planner accepts LTZ but its runtime converter does not ("Unsupported
+  -- type: TIMESTAMP_LTZ(3)"). The job casts in the session zone, UTC, and
+  -- Postgres stores the result as TIMESTAMPTZ in the JVM zone, also UTC.
+  started_at   TIMESTAMP(3),
+  observed_at  TIMESTAMP(3),
+  PRIMARY KEY (event_id) NOT ENFORCED
+) WITH (
+  'connector' = 'jdbc',
+  'url' = 'jdbc:postgresql://postgres:5432/spot',
+  'table-name' = 'raw_plays',
+  'username' = 'spot',
+  'password' = 'spot'
+);

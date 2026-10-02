@@ -200,6 +200,24 @@ services:
       - flink-checkpoints:/opt/flink/checkpoints
     restart: unless-stopped
 
+  # Runs once on `docker compose up`, submits any job that is not already
+  # running, exits 0. Like kafka-init, a stopped container is its steady state.
+  flink-submit:
+    <<: *flink
+    command: ["bash", "/opt/flink/bin/spot-submit.sh"]
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+      taskmanager:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./flink/sql:/opt/flink/sql:ro
+    restart: "no"
+
   consumer:
     build: .
     # The image's CMD runs the simulator; this service runs the consumer.
